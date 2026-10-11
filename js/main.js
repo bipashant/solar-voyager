@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { SolarSystem } from './bodies.js';
 import { Sky } from './sky.js';
+import { Spacetime } from './spacetime.js';
 import { CameraRig } from './controls.js';
 import { Travel, arrivalDistance, setViewScale } from './travel.js';
 import { TextureStore } from './textures.js';
@@ -41,6 +42,7 @@ const textures = new TextureStore(renderer, manager);
 const system = new SolarSystem(scene, textures, shared);
 system.showOrbits = true;
 const sky = new Sky(textures);
+const spacetime = new Spacetime(system, scene, sky);
 const rig = new CameraRig(canvas);
 const travel = new Travel();
 
@@ -84,7 +86,7 @@ const state = {
 };
 
 const app = {
-  state, system, sky, travel, rig, camPos,
+  state, system, sky, spacetime, travel, rig, camPos,
 
   systemBody() {
     const b = travel.active ? travel.target : state.focus;
@@ -260,11 +262,14 @@ window.addEventListener('keydown', (e) => {
   if (e.target.closest && e.target.closest('input, select, textarea')) return;
   if (e.key === 'Escape') {
     if (!document.getElementById('help').hidden) ui.showHelp(false);
+    else if (ui.menuOpen) ui.setMenu(false);
     else app.abort();
   } else if (e.key === ' ') {
     e.preventDefault();
     app.setTimeRate(state.timeRate.rate === 0 ? state.lastRate.id : 'pause');
   } else if (e.key === 'r' || e.key === 'R') rig.resetLook();
+  else if (e.key === 'g' || e.key === 'G') ui.setToggle('curvature', !ui.toggles.curvature);
+  else if (e.key === 'h' || e.key === 'H') ui.setChromeHidden(!ui.uiHidden);
   else if (e.key === 'Enter' && e.target === document.body) app.engage();
 });
 
@@ -335,6 +340,7 @@ function frame(now) {
   camera.quaternion.copy(camQuat);
   camera.updateMatrixWorld();
   system.updateRender(camPos, camera, viewport, travel.active ? travel.target : state.focus, app.systemBody());
+  spacetime.update(dt, camPos, travel.active ? travel.target : state.focus);
 
   const earth = system.byId.earth;
   if (earth.surface.uniforms.uCloudShift) {

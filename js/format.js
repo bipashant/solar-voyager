@@ -56,3 +56,46 @@ export function fmtFactor(x) {
   if (x < 1e12) return `×${(x / 1e9).toFixed(1)} billion`;
   return `×${(x / 1e12).toFixed(1)} trillion`;
 }
+
+const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+
+// 3.2 × 10¹¹ style for very large or small numbers.
+export function fmtSci(x, digits = 2) {
+  if (x === 0 || !isFinite(x)) return String(x);
+  const e = Math.floor(Math.log10(Math.abs(x)));
+  if (e >= -2 && e < 4) return x.toLocaleString('en-US', { maximumSignificantDigits: digits + 1 });
+  const m = x / 10 ** e;
+  return `${m.toFixed(digits - 1)} × 10${String(e).replace(/./g, (c) => SUP[c])}`;
+}
+
+// Lengths from micrometres up, for Schwarzschild radii.
+export function fmtLength(km) {
+  if (km >= 10) return fmtDistance(km);
+  if (km >= 1) return `${km.toFixed(2)} km`;
+  const m = km * 1000;
+  if (m >= 1) return `${m.toFixed(m < 10 ? 2 : 1)} m`;
+  if (m >= 0.01) return `${(m * 100).toFixed(m < 0.1 ? 2 : 1)} cm`;
+  if (m >= 1e-3) return `${(m * 1000).toFixed(2)} mm`;
+  if (m >= 1e-6) return `${(m * 1e6).toFixed(m < 1e-5 ? 2 : 1)} µm`;
+  return `${(m * 1e9).toFixed(2)} nm`;
+}
+
+// Short spans of time, down to femtoseconds.
+export function fmtTiny(s) {
+  if (s >= 1) return fmtDuration(s);
+  const units = [[1e-3, 'ms'], [1e-6, 'µs'], [1e-9, 'ns'], [1e-12, 'ps'], [1e-15, 'fs']];
+  for (const [u, name] of units) {
+    if (s >= u) { const v = s / u; return `${v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0)} ${name}`; }
+  }
+  return `${fmtSci(s / 1e-15)} fs`;
+}
+
+// Small angles in arcseconds, milliarcseconds or microarcseconds.
+export function fmtArc(rad) {
+  const as = rad * 206264.806;
+  if (as >= 60) return `${(as / 60).toFixed(1)}′`;
+  if (as >= 1) return `${as.toFixed(2)}″`;
+  if (as >= 1e-3) return `${(as * 1e3).toFixed(as < 0.01 ? 2 : 1)} mas`;
+  if (as >= 1e-6) return `${(as * 1e6).toFixed(as < 1e-5 ? 2 : 1)} µas`;
+  return `${fmtSci(as * 1e6)} µas`;
+}

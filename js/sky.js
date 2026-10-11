@@ -5,6 +5,7 @@ import { raDecToScene, sceneToGalacticMatrix } from './ephemeris.js';
 import * as S from './shaders.js';
 
 const R_SKY = 100;
+const MAX_LENS = 6;
 
 function bvToColor(bv) {
   const stops = [
@@ -27,11 +28,17 @@ export class Sky {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
     this.textures = textures;
+    // Gravitational lenses, filled in by Spacetime while curvature is shown.
+    this.lens = {
+      uLens: { value: Array.from({ length: MAX_LENS }, () => new THREE.Vector4()) },
+      uLensS: { value: new Array(MAX_LENS).fill(0) },
+      uLensN: { value: 0 },
+    };
 
     this.milkyMat = new THREE.ShaderMaterial({
       vertexShader: S.SKY_VERT, fragmentShader: S.SKY_FRAG, side: THREE.BackSide, depthWrite: false, depthTest: false,
       toneMapped: false,
-      uniforms: { uMilky: { value: textures.placeholder }, uGal: { value: sceneToGalacticMatrix() }, uBright: { value: 1.25 } },
+      uniforms: { uMilky: { value: textures.placeholder }, uGal: { value: sceneToGalacticMatrix() }, uBright: { value: 1.25 }, ...this.lens },
     });
     const sphere = new THREE.Mesh(new THREE.SphereGeometry(R_SKY, 96, 48), this.milkyMat);
     sphere.renderOrder = 0;
@@ -55,12 +62,21 @@ export class Sky {
     this.starMat = new THREE.ShaderMaterial({
       vertexShader: S.STAR_VERT, fragmentShader: S.STAR_FRAG, transparent: true, depthTest: false, depthWrite: false,
       blending: THREE.AdditiveBlending, toneMapped: false,
-      uniforms: { uScale: { value: Math.min(window.devicePixelRatio, 2) }, uBright: { value: 1.0 } },
+      uniforms: { uScale: { value: Math.min(window.devicePixelRatio, 2) }, uBright: { value: 1.0 }, ...this.lens },
     });
     const stars = new THREE.Points(geo, this.starMat);
     stars.renderOrder = 2;
     stars.frustumCulled = false;
     this.scene.add(stars);
+    // Each lens also makes a faint second image of every star, on the far side inside its Einstein ring.
+    const innerMat = this.starMat.clone();
+    innerMat.uniforms = this.starMat.uniforms;
+    innerMat.defines = { LENS_MINUS: '' };
+    this.innerStars = new THREE.Points(geo, innerMat);
+    this.innerStars.renderOrder = 2;
+    this.innerStars.frustumCulled = false;
+    this.innerStars.visible = false;
+    this.scene.add(this.innerStars);
 
     // Constellation figures
     const seg = [];
@@ -90,7 +106,7 @@ export class Sky {
     this.lineMat = new THREE.ShaderMaterial({
       vertexShader: S.LINE_SKY_VERT, fragmentShader: S.LINE_SKY_FRAG, transparent: true, depthTest: false, depthWrite: false,
       toneMapped: false,
-      uniforms: { uColor: { value: new THREE.Color(0.55, 0.72, 1.0) }, uOpacity: { value: 0.32 } },
+      uniforms: { uColor: { value: new THREE.Color(0.55, 0.72, 1.0) }, uOpacity: { value: 0.32 }, ...this.lens },
     });
     this.lines = new THREE.LineSegments(lgeo, this.lineMat);
     this.lines.renderOrder = 1;
@@ -121,11 +137,31 @@ export class Sky {
     this.camera.aspect = mainCamera.aspect;
     this.camera.updateProjectionMatrix();
     this.camera.updateMatrixWorld();
+    this.innerStars.visible = this.lens.uLensN.value > 0;
+  }
+
+  // Where a star at true direction dir appears through the lenses (its outer image), as in STAR_VERT.
+  lensed(dir, out) {
+    out.copy(dir);
+    const L = this.lens;
+    for (let i = 0; i < L.uLensN.value; i++) {
+      const l = L.uLens.value[i];
+      const c = out.x * l.x + out.y * l.y + out.z * l.z;
+      const tx = out.x - l.x * c, ty = out.y - l.y * c, tz = out.z - l.z * c;
+      const st = Math.hypot(tx, ty, tz);
+      if (st < 1e-9) continue;
+      const b = Math.atan2(st, c);
+      const th = Math.min(0.5 * (b + Math.sqrt(b * b + 4 * l.w * l.w)), Math.PI);
+      const cs = Math.cos(th), sn = Math.sin(th) / st;
+      out.set(l.x * cs + tx * sn, l.y * cs + ty * sn, l.z * cs + tz * sn);
+    }
+    return out;
   }
 
   // Screen position of a sky direction, or null when behind the camera.
   project(dir, viewport, out) {
-    const v = out.copy(dir).multiplyScalar(R_SKY).applyMatrix4(this.camera.matrixWorldInverse);
+    const v = (this.lens.uLensN.value ? this.lensed(dir, out) : out.copy(dir))
+      .multiplyScalar(R_SKY).applyMatrix4(this.camera.matrixWorldInverse);
     if (v.z >= 0) return null;
     const pxPerRad = viewport.y / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
     return { x: (v.x / -v.z) * pxPerRad + viewport.x / 2, y: (-v.y / -v.z) * pxPerRad + viewport.y / 2 };

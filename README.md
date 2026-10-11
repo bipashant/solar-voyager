@@ -17,6 +17,7 @@ There is no build step, framework or backend. You need a static file server and 
 - **A real sky.** A Milky Way panorama aligned to galactic coordinates, 197 bright stars at catalogue positions and colours, 25 constellation figures, and star names.
 - **Speed you can feel.** Flights at a choice of ten speeds. A ship clock shows the true trip time: 1.3 s from Earth to the Moon at light speed, or 413 years to Neptune at the speed of sound.
 - **Eclipses and shadows.** Moons cast shadows on planets, planets eclipse their moons, Saturn's rings shadow the planet, and the planet shadows its rings.
+- **Spacetime curvature.** One toggle shows general relativity at work: a grid that sinks into each world's gravity well, shaped by its real mass, and starlight bending around planets into Einstein rings.
 
 ---
 
@@ -33,12 +34,13 @@ There is no build step, framework or backend. You need a static file server and 
 9. [How the sky objects are built](#9-how-the-sky-objects-are-built)
 10. [How zooming works](#10-how-zooming-works)
 11. [How lighting works](#11-how-lighting-works)
-12. [How flights work](#12-how-flights-work)
-13. [What is real and what is approximated](#13-what-is-real-and-what-is-approximated)
-14. [Project structure](#14-project-structure)
-15. [Extending it](#15-extending-it)
-16. [Browser support and performance](#16-browser-support-and-performance)
-17. [Credits](#17-credits)
+12. [How spacetime curvature works](#12-how-spacetime-curvature-works)
+13. [How flights work](#13-how-flights-work)
+14. [What is real and what is approximated](#14-what-is-real-and-what-is-approximated)
+15. [Project structure](#15-project-structure)
+16. [Extending it](#16-extending-it)
+17. [Browser support and performance](#17-browser-support-and-performance)
+18. [Credits](#18-credits)
 
 ---
 
@@ -77,7 +79,7 @@ In VS Code, the *Live Server* extension also works.
 7. **Press Engage.** The flight display shows the ship clock, time left, distance left and velocity. Press **Esc** or **Abort** to stop wherever you are.
 8. **Explore on arrival.** You arrive on the sunlit side and the console suggests the next stop, usually the largest moon. Use the zoom buttons on the left edge to dive towards the clouds.
 9. **Play with time.** The clock in the top left shows the simulated date in your own time zone (hover over it for UTC) and can run at up to one year per second. Watch Io whip around Jupiter, the Great Red Spot rotate into daylight, or a moon slide out of its planet's shadow. **Now** jumps back to the present.
-10. **Switch on the sky overlays.** The buttons at the top right toggle orbits, labels, constellation figures, star names and the cockpit frame.
+10. **Switch on the sky overlays.** The buttons at the top right toggle orbits, labels, constellation figures, star names, spacetime curvature and the cockpit frame. On a phone they sit behind the layers button. The eye button (or **H**) hides every control when you just want to look.
 
 ---
 
@@ -95,6 +97,9 @@ In VS Code, the *Live Server* extension also works.
 | Arrow keys / A, D | Orbit from the keyboard |
 | W / S, + / − keys | Zoom from the keyboard |
 | R | Re-centre the view after looking around |
+| G | Show or hide spacetime curvature (same as the **Curvature** button) |
+| H, or the eye button (top right) | Hide every control for a clear, full-screen view; press again, or tap the small eye, to bring them back |
+| Layers button (phones) | Opens the view options: orbits, labels, constellations, star names, curvature, cockpit, help and full screen |
 | Space | Pause or resume time |
 | Enter | Engage (when nothing else has focus) |
 | Esc | Abort a flight, or close the help screen |
@@ -205,7 +210,7 @@ Every other moon follows a Keplerian orbit using its real semi-major axis, perio
 
 - **Regular moons** orbit in their planet's equatorial plane. Uranus's moons therefore circle a planet tipped 98° on its side.
 - **Irregular, captured moons** (Himalia, Phoebe, Sycorax, Nereid and others) are referenced to the ecliptic. Retrograde orbits simply have inclinations above 90°.
-- The node and starting phase of each orbit are fixed values derived from a hash of the moon's name, so they stay the same every visit. They are illustrative, not ephemeris-accurate (section 13).
+- The node and starting phase of each orbit are fixed values derived from a hash of the moon's name, so they stay the same every visit. They are illustrative, not ephemeris-accurate (section 14).
 - Nereid's highly eccentric orbit (e = 0.75) is solved with Kepler's equation like the planets.
 
 ### Rotation: which side faces you
@@ -524,7 +529,75 @@ Transparent layers are given explicit render orders, so a ring in front of the p
 
 ---
 
-## 12. How flights work
+## 12. How spacetime curvature works
+
+Press **Curvature** (or **G**) and two things appear: a grid that sinks into every world's gravity well, and the background sky bending around each mass. Both are real general relativity, drawn with real masses. The only thing changed is the strength, because the true effects are far too small to see.
+
+### 12.1 What the grid shows
+
+In general relativity, gravity is the curvature of spacetime. Around a slow-moving mass like a planet, almost all of the effect you feel comes from one part of the metric, the part that sets how fast clocks tick:
+
+```
+g_tt = −(1 − 2U/c²)        U = GM / r   (the Newtonian potential)
+```
+
+Deeper in a well, clocks run slower, and falling objects follow the slope of that slowdown. That is why a "rubber sheet" picture works at all. The sheet's depth is drawn proportional to U, so:
+
+- **Depth means time.** Every point on the grid sinks by an amount proportional to how much slower a clock there would run. The info panel gives the scale, for example "every 5,900 km of depth means clocks lose 1 ns more per second".
+- **Slope means gravity.** The slope of the sheet is the gradient of U, the pull of gravity. Jupiter's well is steeper at its cloud tops than Earth's because its surface gravity is 2.5 times higher.
+- **Shapes and ratios are real.** Each well uses the body's real GM (JPL values in `js/spacetime.js`). Outside a body U falls off as 1/r; inside, as a uniform ball, it is a smooth bowl, so the well has a rounded bottom instead of a spike. The Moon's dent next to Earth's well is exactly as much shallower as it really is.
+
+The real dips are tiny: Earth slows surface clocks by 7 parts in 10¹⁰, about 22 milliseconds a year. So the depth is multiplied by a scale that keeps the main well at roughly 15% of your distance from it. Very deep funnels are then eased off, `d / (1 + d/d_max)`, so the bottom of the Sun's well stays on screen.
+
+### 12.2 Whose frame: falling freely
+
+A potential has no absolute zero, and a uniform pull cannot be felt by anything falling freely in it (Einstein's equivalence principle: the astronauts on the ISS float). Near Earth the Sun's pull is stronger than Earth's beyond about 260,000 km, yet the Moon still orbits Earth, because Earth and Moon fall towards the Sun together.
+
+So the grid is drawn in the falling frame of one body. Each frame, `Spacetime.frameFor()` picks the body you are visiting while you are inside its *sphere of influence* (`a · (m/M)^0.4`, about 925,000 km for Earth). Outside that it moves up to the planet the moon orbits, and then to the Sun. For that body, the constant and uniform-pull terms of every other body's potential are subtracted:
+
+```
+U_frame(x) = Σ U_i(x) − [ Σ_{i≠frame} U_i(x0) + ∇U_i(x0)·(x − x0) ]
+```
+
+What remains is the frame body's own well, the wells of nearby bodies, and the *tides* of distant ones: the gentle saddle that stretches the sheet along the line to the Sun and squeezes it across. Zoom far out from Earth and the frame switches to the Sun; the switch blends over about a second so the sheet never jumps.
+
+### 12.3 Drawing a sheet from metres to light-hours
+
+The grid has the same scale problem as everything else (section 6), so it borrows the same tricks:
+
+- **Log-polar mesh.** The sheet is a disc of 480 rings × 320 segments centred on the point below the camera, with ring radii growing exponentially. Cells stay roughly the same size on screen from 1 km to 10¹¹ km away.
+- **Camera-relative wells.** Body positions are sent to the GPU relative to the camera, as for the meshes, and the potential is summed in the vertex shader for up to 34 bodies (everything with GM ≥ 1 km³/s², plus the body you are visiting).
+- **Band-limited wells.** A distant well narrower than a mesh cell would fall between vertices and flicker. So each well is softened to at least 5% of its distance from the camera, the same idea as the band-limited terrain in section 10.5.
+- **Grid lines fixed to space.** Lines run along ecliptic x and z at powers of ten, picked per pixel from `fwidth` so cells stay 2–20 px wide and fade smoothly into the next decade. To keep float32 precise, JavaScript sends the camera's position *modulo each spacing* (computed in 64-bit), so the shader only ever adds small numbers. Planets slide through a grid that stays fixed in space.
+- **Every world sits on the sheet.** Orbits are tilted a few degrees from the ecliptic, so each body's well is drawn under its projection onto the sheet, as if it rested there. The sheet itself runs just below the body you are visiting.
+
+### 12.4 Bent starlight: gravitational lensing
+
+Light passing a mass at angle θ from its centre is deflected by `θE²/θ`, where θE is the Einstein radius. For a star far behind the mass, `θE = √(2 rs / D)`, with `rs = 2GM/c²` the Schwarzschild radius and D your distance from the mass. The real numbers: starlight grazing the Sun bends 1.75″ (the 1919 eclipse measurement), Jupiter 16 mas, Earth 0.57 mas.
+
+The sky shaders apply the thin-lens equation exactly, for the six strongest lenses in view:
+
+- **Milky Way (inverse map).** For each pixel, the shader asks where that light came from: it rotates the view direction towards each mass by θE²/θ, then samples the panorama there. Lensing preserves surface brightness, so the Milky Way bends and stretches without getting brighter.
+- **Stars (forward map).** A point star at angle β produces two images, at `θ± = (β ± √(β² + 4θE²)) / 2`, magnified by `(u² + 2) / (2u√(u² + 4)) ± ½` with u = β/θE. The outer image moves each star outward; a second, faint inner image of every star is drawn on the far side. Stars behind a planet reappear just outside its edge, brightened, as a sparkling ring.
+
+Every mass is strengthened by the same factor, chosen so the body you are visiting gets a ring just outside its edge. The panel shows the factor, and the ratios between bodies stay real. From Jupiter the Sun still lenses more strongly than Jupiter's moons, because it is so much heavier.
+
+### 12.5 The numbers in the panel
+
+With curvature on, the info panel adds a **Spacetime** block for the selected body, all computed from its real GM and radius:
+
+| Row | Formula | Earth | Sun |
+| --- | --- | --- | --- |
+| Schwarzschild radius | 2GM/c² | 8.87 mm | 2.95 km |
+| Surface clocks lose | GM/(Rc²) × 1 year | 21.9 ms a year | about 67 s a year |
+| Light bent at the edge | 4GM/(c²R) | 574 µas | 1.75″ |
+| Escape speed | √(2GM/R) | 11.2 km/s | 618 km/s |
+
+Below them, a line says which body's frame the grid is in, how many kilometres of depth stand for 1 ns/s of clock slowdown, and how much light bending is exaggerated.
+
+---
+
+## 13. How flights work
 
 When you press **Engage**, `Travel.start()` (`js/travel.js`) plans the trip:
 
@@ -559,7 +632,7 @@ The ship moves at `speed × time-lapse` km per second in a straight line, and th
 
 ---
 
-## 13. What is real and what is approximated
+## 14. What is real and what is approximated
 
 | Aspect | Status |
 | --- | --- |
@@ -577,10 +650,13 @@ The ship moves at `speed × time-lapse` km per second in a straight line, and th
 | Brightness | Constant sunlight (auto-exposure style), not inverse-square |
 | Ring structure | Real radii for major rings and gaps; ringlet texture is procedural |
 | Moon counts in the info panel | Recent published totals; new discoveries keep changing them |
+| Masses (GM) of the Sun, planets and major moons | Real, JPL values; small moons without a measured mass use 1.3 g/cm³ |
+| Spacetime curvature: well shapes, depth ratios, Einstein radii | Real (weak-field general relativity) |
+| Spacetime curvature: overall depth and lensing strength | **Exaggerated** by the factors shown in the info panel |
 
 ---
 
-## 14. Project structure
+## 15. Project structure
 
 ```
 index.html            Page shell, HUD markup, import map for three.js
@@ -591,11 +667,13 @@ js/data.js            Every body's physical/orbital data and facts; ring tables;
 js/bodies.js          SolarSystem class: meshes, materials, rings, atmospheres, orbit lines, markers,
                       per-frame camera-relative placement and shader inputs
 js/shaders.js         All GLSL: noise, craters, surfaces, clouds, Sun, atmospheres, rings, sky,
-                      stars, orbits, markers, glare, warp streaks
-js/sky.js             Milky Way sphere, star points, constellation lines, sky projection
+                      stars, lensing, curvature sheet, orbits, markers, glare, warp streaks
+js/sky.js             Milky Way sphere, star points (and their lensed inner images), constellation
+                      lines, sky projection
 js/stars.js           Bright-star catalogue and constellation figures
 js/controls.js        CameraRig: orbit, log-altitude zoom, free look, tap/double-tap, zoom API
 js/travel.js          Flight planning, cinematic log profile, real-time mode
+js/spacetime.js       Masses, gravity-well sheet, free-falling frame, gravitational lensing inputs
 js/ui.js              Selects, info panel, flight display, zoom control, labels and decluttering
 js/format.js          Distance, duration, speed and time-lapse formatting
 js/textures.js        Texture loading with 2k first pass and on-demand upgrades
@@ -607,7 +685,7 @@ The code is plain ES modules with no build step. Edit a file and refresh the pag
 
 ---
 
-## 15. Extending it
+## 16. Extending it
 
 ### Add a moon
 
@@ -655,7 +733,7 @@ solarVoyager.rig.setZoomFraction(0.9)            // zoom close to the surface
 
 ---
 
-## 16. Browser support and performance
+## 17. Browser support and performance
 
 - **Browsers:** any browser with WebGL 2, ES modules and import maps, which covers current Chrome, Edge, Firefox and Safari (16.4 or later).
 - **Phones and tablets:** supported, with a touch layout. Very old mobile GPUs may skip the 8k textures automatically.
@@ -664,7 +742,7 @@ solarVoyager.rig.setZoomFraction(0.9)            // zoom close to the surface
 
 ---
 
-## 17. Credits
+## 18. Credits
 
 - **Planet, Sun, Moon and Milky Way maps:** [Solar System Scope](https://www.solarsystemscope.com/textures/), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), based on NASA imagery.
 - **Planetary orbits:** E. M. Standish, JPL Solar System Dynamics, *Keplerian Elements for Approximate Positions of the Major Planets*.

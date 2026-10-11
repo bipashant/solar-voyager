@@ -761,14 +761,65 @@ void main(){
 }
 `;
 
+// ---------------------------------------------------------------- gravitational lensing of the sky
+// Thin point lenses. uLens[i] = (direction to the mass, Einstein radius θE in radians); uLensS softens
+// the deflection inside the body's disc, which hides that part of the sky anyway.
+export const LENS = /* glsl */`
+#define MAX_LENS 6
+uniform vec4 uLens[MAX_LENS];
+uniform float uLensS[MAX_LENS];
+uniform int uLensN;
+
+// Where light seen in direction v really came from: each mass bent it by θE²/θ towards itself.
+vec3 lensSource(vec3 v){
+  vec3 s = v;
+  for (int i = 0; i < MAX_LENS; i++){
+    if (i >= uLensN) break;
+    vec3 l = uLens[i].xyz;
+    vec3 t = l - v * dot(v, l);
+    float st = length(t);
+    if (st < 1e-9) continue;
+    float th = atan(st, dot(v, l));
+    float e = uLens[i].w, k = uLensS[i];
+    float a = e * e * th / (th * th + k * k);
+    s = normalize(s * cos(a) + (t / st) * sin(a));
+  }
+  return s;
+}
+
+// Forward map for a point star at true direction s. Every lens makes two images: one outside the
+// Einstein ring, pushed away from the mass, and a fainter one inside it on the far side. minusFor picks
+// the lens whose inner image to return (-1 for none); mag collects the brightening.
+vec3 lensImage(vec3 s, int minusFor, inout float mag){
+  for (int i = 0; i < MAX_LENS; i++){
+    if (i >= uLensN) break;
+    vec3 l = uLens[i].xyz;
+    vec3 t = s - l * dot(s, l);
+    float st = length(t);
+    if (st < 1e-9) continue;
+    float b = atan(st, dot(s, l));
+    float e = uLens[i].w;
+    float root = sqrt(b * b + 4.0 * e * e);
+    float x = b / e;
+    float mu = (x * x + 2.0) / max(x * sqrt(x * x + 4.0), 1e-4);
+    float th;
+    if (i == minusFor) { th = 0.5 * (b - root); mag *= 0.5 * (mu - 1.0); }
+    else { th = min(0.5 * (b + root), 3.14159265); mag *= 0.5 * (mu + 1.0); }
+    s = l * cos(th) + (t / st) * sin(th);
+  }
+  return s;
+}
+`;
+
 export const SKY_FRAG = /* glsl */`
 #include <common>
+${LENS}
 uniform sampler2D uMilky;
 uniform mat3 uGal;
 uniform float uBright;
 varying vec3 vDir;
 void main(){
-  vec3 g = normalize(uGal * normalize(vDir));
+  vec3 g = normalize(uGal * lensSource(normalize(vDir)));
   float l = atan(g.y, g.x);
   float b = asin(clamp(g.z, -1.0, 1.0));
   vec2 uv = vec2(fract(0.5 - l / (2.0 * PI)), 0.5 - b / PI);
@@ -783,14 +834,26 @@ void main(){
 `;
 
 export const STAR_VERT = /* glsl */`
+${LENS}
 attribute float aSize;
 attribute vec3 aColor;
 uniform float uScale;
 varying vec3 vColor;
 void main(){
-  vColor = aColor;
-  gl_PointSize = aSize * uScale;
-  vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  float mag = 1.0;
+  vec3 dir = normalize(position);
+  #ifdef LENS_MINUS
+    // second, inner image of each star, only drawn while lensing is on
+    if (uLensN == 0) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+    dir = lensImage(dir, 0, mag);
+    if (mag < 0.02) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  #else
+    dir = lensImage(dir, -1, mag);
+  #endif
+  mag = min(mag, 6.0);
+  vColor = aColor * mag;
+  gl_PointSize = aSize * uScale * clamp(sqrt(mag), 0.6, 2.0);
+  vec4 p = projectionMatrix * modelViewMatrix * vec4(dir * length(position), 1.0);
   gl_Position = p.xyww;
 }
 `;
@@ -808,8 +871,11 @@ void main(){
 `;
 
 export const LINE_SKY_VERT = /* glsl */`
+${LENS}
 void main(){
-  vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  float mag = 1.0;
+  vec3 dir = lensImage(normalize(position), -1, mag);
+  vec4 p = projectionMatrix * modelViewMatrix * vec4(dir * length(position), 1.0);
   gl_Position = p.xyww;
 }
 `;
@@ -844,6 +910,80 @@ void main(){
   float a = uOpacity * smoothstep(uFadeNear * 0.25, uFadeNear, vDist);
   if (a < 0.003) discard;
   gl_FragColor = vec4(uColor, a);
+}
+`;
+
+// ---------------------------------------------------------------- spacetime curvature sheet
+// position = (ring fraction, angle). The sheet is laid out around the point below the camera and sunk
+// by the potential of every well, minus the frame's uniform pull (uLin), in camera-relative km.
+// uWell = (x, radius, z, GM): each body is projected onto the sheet, resting on it.
+export const SHEET_VERT = /* glsl */`
+#include <common>
+#include <logdepthbuf_pars_vertex>
+uniform vec4 uWell[MAX_WELLS];
+uniform float uSoft[MAX_WELLS];
+uniform int uWellN;
+uniform vec3 uFoot;
+uniform vec3 uX0;
+uniform vec4 uLin;
+uniform float uRmin, uSpan, uExag, uDmax, uSide;
+varying vec2 vQ;
+varying float vR;
+varying float vDepthN;
+void main(){
+  float r = uRmin * (exp(position.x * uSpan) - 1.0);
+  vec2 q = vec2(cos(position.y), sin(position.y)) * r;
+  vec3 p = uFoot + vec3(q.x, 0.0, q.y);
+  float U = -(uLin.w + dot(uLin.xyz, p - uX0));
+  for (int i = 0; i < MAX_WELLS; i++) {
+    if (i >= uWellN) break;
+    // every body rests on the sheet: its centre sits uWell.y (its radius) above it, wherever its orbit is
+    vec2 dxz = p.xz - uWell[i].xz;
+    float rr = sqrt(dot(dxz, dxz) + uWell[i].y * uWell[i].y);
+    float a = uSoft[i], gm = uWell[i].w;
+    U += rr >= a ? gm / rr : gm * (3.0 - rr * rr / (a * a)) / (2.0 * a);
+  }
+  // Exaggerate, then ease off the very deepest part of each funnel so it stays on screen.
+  float depth = U * uExag;
+  depth /= 1.0 + abs(depth) / uDmax;
+  p.y -= uSide * depth;
+  vQ = q;
+  vR = r;
+  vDepthN = clamp(depth / uDmax, 0.0, 1.0);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  #include <logdepthbuf_vertex>
+}
+`;
+
+// Grid lines on ecliptic x/z at powers of ten, picked per pixel so cells stay 2–20 px wide at any range.
+export const SHEET_FRAG = /* glsl */`
+#include <logdepthbuf_pars_fragment>
+uniform vec2 uOffs[16];
+uniform float uBaseExp;
+uniform float uRmax;
+uniform float uOpacity;
+varying vec2 vQ;
+varying float vR;
+varying float vDepthN;
+float gridLines(vec2 p, vec2 w){
+  vec2 g = abs(fract(p - 0.5) - 0.5) / max(w, vec2(1e-6));
+  return 1.0 - smoothstep(0.4, 1.4, min(g.x, g.y));
+}
+void main(){
+  #include <logdepthbuf_fragment>
+  vec2 fw = fwidth(vQ);
+  float lev = log2(max(max(fw.x, fw.y), 1e-20) * 22.0) * 0.30103;
+  float n = clamp(floor(lev), uBaseExp, uBaseExp + 14.0);
+  float f = clamp(lev - n, 0.0, 1.0);
+  int i = int(n - uBaseExp);
+  float L = pow(10.0, n);
+  float fine = gridLines((vQ + uOffs[i]) / L, fw / L);
+  float coarse = gridLines((vQ + uOffs[i + 1]) / (L * 10.0), fw / (L * 10.0));
+  float a = max(fine * (1.0 - f) * 0.5, coarse);
+  float edge = 1.0 - smoothstep(0.2 * uRmax, uRmax, vR);
+  vec3 col = mix(vec3(0.5, 0.78, 1.0), vec3(0.78, 0.62, 1.0), smoothstep(0.0, 0.7, vDepthN));
+  float glow = 0.02 + 0.07 * vDepthN;
+  gl_FragColor = vec4(col * (a * 0.9 + glow) * uOpacity * edge, 1.0);
 }
 `;
 

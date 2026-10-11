@@ -86,17 +86,31 @@
   </div>
 </header>
 
-<nav class="toggles" aria-label="View options">
-  <button class="tog" type="button" data-toggle="orbits" aria-pressed="true">Orbits</button>
-  <button class="tog" type="button" data-toggle="labels" aria-pressed="true">Labels</button>
-  <button class="tog" type="button" data-toggle="constellations" aria-pressed="false">Constellations</button>
-  <button class="tog" type="button" data-toggle="starnames" aria-pressed="false">Star names</button>
-  <button class="tog" type="button" data-toggle="cockpit" aria-pressed="true">Cockpit</button>
-  <button class="icon-btn" type="button" id="btn-help" aria-label="Controls and help">?</button>
-  <button class="icon-btn" type="button" id="btn-full" aria-label="Toggle full screen">
-    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5"/></svg>
+<nav class="toggles" id="toggles" aria-label="View options">
+  <button class="icon-btn layers-btn" type="button" id="btn-layers" aria-expanded="false" aria-controls="tog-group" aria-label="View options" title="View options">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3l7 3.8-7 3.8-7-3.8z"/><path d="M3 10.2l7 3.8 7-3.8"/><path d="M3 13.6l7 3.8 7-3.8"/></svg>
+  </button>
+  <div class="tog-group" id="tog-group">
+    <button class="tog" type="button" data-toggle="orbits" aria-pressed="true">Orbits</button>
+    <button class="tog" type="button" data-toggle="labels" aria-pressed="true">Labels</button>
+    <button class="tog" type="button" data-toggle="constellations" aria-pressed="false">Constellations</button>
+    <button class="tog" type="button" data-toggle="starnames" aria-pressed="false">Star names</button>
+    <button class="tog" type="button" data-toggle="curvature" aria-pressed="false" title="Show spacetime curvature: gravity wells and bent starlight (G)">Curvature</button>
+    <button class="tog" type="button" data-toggle="cockpit" aria-pressed="true">Cockpit</button>
+    <div class="tog-extra">
+      <button class="icon-btn" type="button" id="btn-help" aria-label="Controls and help" title="Controls and help">?</button>
+      <button class="icon-btn" type="button" id="btn-full" aria-label="Toggle full screen" title="Full screen">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5"/></svg>
+      </button>
+    </div>
+  </div>
+  <button class="icon-btn" type="button" id="btn-hide-ui" aria-label="Hide controls" title="Hide controls for a clear view (H)">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 10s2.8-5 7.5-5 7.5 5 7.5 5-2.8 5-7.5 5-7.5-5-7.5-5z"/><circle cx="10" cy="10" r="2.3"/><path d="M3.5 16.5l13-13"/></svg>
   </button>
 </nav>
+<button class="icon-btn show-ui" type="button" id="btn-show-ui" hidden aria-label="Show controls" title="Show controls (H)">
+  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 10s2.8-5 7.5-5 7.5 5 7.5 5-2.8 5-7.5 5-7.5-5-7.5-5z"/><circle cx="10" cy="10" r="2.3"/></svg>
+</button>
 
 <aside id="info" class="panel" aria-live="polite">
   <div class="info-head">
@@ -112,6 +126,11 @@
   </div>
   <div class="info-body">
     <dl class="live" id="info-live"></dl>
+    <div class="gr" id="info-gr" hidden>
+      <div class="eyebrow">Spacetime · general relativity</div>
+      <dl id="info-gr-rows"></dl>
+      <p class="gr-note" id="info-gr-note"></p>
+    </div>
     <dl class="facts" id="info-facts"></dl>
     <p class="blurb" id="info-blurb"></p>
     <div class="chip-group" id="info-features-wrap">
@@ -181,6 +200,8 @@
       <div><span class="keys"><kbd>Double-tap</kbd></span><span class="what">Fly there straight away</span></div>
       <div><span class="keys"><kbd>Arrows</kbd> <kbd>W</kbd> <kbd>S</kbd></span><span class="what">Orbit and zoom from the keyboard</span></div>
       <div><span class="keys"><kbd>R</kbd></span><span class="what">Re-centre the view</span></div>
+      <div><span class="keys"><kbd>G</kbd></span><span class="what">Show spacetime curvature: gravity wells and bent starlight</span></div>
+      <div><span class="keys"><kbd>H</kbd> or the eye button</span><span class="what">Hide every control for a clear view; press again to bring them back</span></div>
       <div><span class="keys"><kbd>Space</kbd></span><span class="what">Pause or resume time</span></div>
       <div><span class="keys"><kbd>Esc</kbd></span><span class="what">Abort a flight</span></div>
     </div>

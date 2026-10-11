@@ -1,7 +1,7 @@
 // DOM side of the app: panels, selects, the flight HUD and screen-space labels.
 import * as THREE from 'three';
 import { BODIES, SPEEDS, TRAVEL_MODES, TIME_RATES } from './data.js';
-import { fmtDistance, fmtAU, fmtDuration, fmtLightTime, fmtSpeed, fmtFactor, fmtCompact } from './format.js';
+import { fmtDistance, fmtAU, fmtDuration, fmtLightTime, fmtSpeed, fmtFactor, fmtCompact, fmtSci, fmtLength, fmtTiny, fmtArc } from './format.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -16,7 +16,7 @@ const PARENT_LABEL = { earth: 'Earth', mars: 'Mars', jupiter: 'Jupiter', saturn:
 export class UI {
   constructor(app) {
     this.app = app;
-    this.toggles = { orbits: true, labels: true, constellations: false, starnames: false, cockpit: true };
+    this.toggles = { orbits: true, labels: true, constellations: false, starnames: false, curvature: false, cockpit: true };
     this.labelEls = new Map();
     this.featureEls = [];
     this.skyEls = { const: [], names: [] };
@@ -80,6 +80,14 @@ export class UI {
       $('info-collapse').setAttribute('aria-expanded', String(!c));
     });
     $('info-go').addEventListener('click', () => this.app.setDestination(this.inspect.id));
+
+    // Phones: the view toggles live in a menu behind one button; a tap anywhere else closes it.
+    $('btn-layers').addEventListener('click', () => this.setMenu(!$('toggles').classList.contains('open')));
+    document.addEventListener('pointerdown', (e) => {
+      if (!$('toggles').contains(e.target)) this.setMenu(false);
+    });
+    $('btn-hide-ui').addEventListener('click', () => this.setChromeHidden(true));
+    $('btn-show-ui').addEventListener('click', () => this.setChromeHidden(false));
     $('btn-help').addEventListener('click', () => this.showHelp(true));
     $('help-close').addEventListener('click', () => this.showHelp(false));
     $('help').addEventListener('click', (e) => { if (e.target.id === 'help') this.showHelp(false); });
@@ -159,6 +167,36 @@ export class UI {
     if (key === 'cockpit') $('cockpit').classList.toggle('off', !on);
     if (key === 'constellations') this.app.sky.setConstellations(on);
     if (key === 'orbits') this.app.system.showOrbits = on;
+    if (key === 'curvature') {
+      this.app.spacetime.setEnabled(on);
+      $('info-gr').hidden = !on;
+      this.refreshGR(true);
+      if (on && this.curvatureHinted !== true && this.inspect) {
+        this.curvatureHinted = true;
+        this.toast('The grid sinks where clocks run slower, and starlight bends around each mass. Both are deepened so you can see them; the real numbers are in the panel.', 6500);
+      }
+    }
+  }
+
+  setMenu(open) {
+    if ($('toggles').classList.contains('open') === open) return;
+    $('toggles').classList.toggle('open', open);
+    $('btn-layers').setAttribute('aria-expanded', String(open));
+    this.panelRects = null;
+  }
+
+  get menuOpen() { return $('toggles').classList.contains('open'); }
+
+  // Clear view: every panel fades out, leaving one small button to bring them back.
+  setChromeHidden(on) {
+    this.uiHidden = on;
+    this.setMenu(false);
+    document.body.classList.toggle('ui-hidden', on);
+    $('btn-show-ui').hidden = !on;
+    this.panelRects = null;
+    const focused = document.activeElement;
+    if (on && focused && focused !== document.body) $('btn-show-ui').focus();
+    if (!on && focused === $('btn-show-ui')) $('btn-hide-ui').focus();
   }
 
   showHelp(on) { $('help').hidden = !on; if (on) $('help-close').focus(); }
@@ -254,6 +292,33 @@ export class UI {
       live.children[i * 2].textContent = k;
       live.children[i * 2 + 1].textContent = v;
     });
+    this.refreshGR(force);
+  }
+
+  // Real general-relativity numbers for the inspected body, and how the drawing is scaled.
+  refreshGR(force) {
+    if (!this.toggles.curvature || !this.inspect) return;
+    const st = this.app.spacetime;
+    const b = this.inspect;
+    if (force || this.grBody !== b) {
+      this.grBody = b;
+      const g = st.describe(b);
+      const rows = [
+        ['Schwarzschild radius', fmtLength(g.rs)],
+        ['Surface clocks lose', `${fmtTiny(g.clock * 31557600)} a year`],
+        ['Light bent at the edge', fmtArc(g.bend)],
+        ['Escape speed', fmtSpeed(g.escape)],
+      ];
+      const dl = $('info-gr-rows');
+      dl.replaceChildren();
+      for (const [k, v] of rows) dl.append(el('dt', null, k), el('dd', null, v));
+      $('info-gr-rows').title = `If ${b.name} were squeezed inside its Schwarzschild radius it would be a black hole. Clocks on the surface run slow by ${fmtSci(g.clock)} (${fmtTiny(g.clock)} every second) from ${b.name}'s own gravity, against a clock far away.`;
+    }
+    const s = st.status();
+    const note = $('info-gr-note');
+    if (!s) { note.textContent = ''; return; }
+    const f = ['sun', 'moon'].includes(s.frame.id) ? `the ${s.frame.name}` : s.frame.name;
+    note.textContent = `The grid runs parallel to the ecliptic just beneath ${f}, with each world's well drawn below it. It falls freely with ${f}, so other worlds add only their tides. Every ${fmtDistance(s.kmPerNs)} of depth means clocks lose 1 ns more per second. Starlight bending is exaggerated ${s.lensFactor < 1e12 ? fmtFactor(s.lensFactor) : `×${fmtSci(s.lensFactor)}`}.`;
   }
 
   // ---------------------------------------------------------------- trip estimate
@@ -395,7 +460,9 @@ export class UI {
     const now = performance.now();
     if (!this.panelRects || now - this.panelRectsAt > 300) {
       this.panelRectsAt = now;
-      this.panelRects = ['#zoom', '#info', '#console', '.clock', '.brand', '.toggles', '#flight']
+      const panels = this.uiHidden ? ['#btn-show-ui']
+        : ['#zoom', '#info', '#console', '.clock', '.brand', '.toggles', '#tog-group', '#flight'];
+      this.panelRects = panels
         .map((sel) => document.querySelector(sel))
         .filter((n) => n && !n.hidden && n.getClientRects().length > 0)
         .map((n) => { const r = n.getBoundingClientRect(); return [r.left - 4, r.top - 4, r.right + 4, r.bottom + 4]; });
