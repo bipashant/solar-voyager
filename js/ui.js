@@ -88,6 +88,17 @@ export class UI {
     });
     $('btn-hide-ui').addEventListener('click', () => this.setChromeHidden(true));
     $('btn-show-ui').addEventListener('click', () => this.setChromeHidden(false));
+    $('dock-info').addEventListener('click', () => {
+      const open = !this.peeking('info');
+      // details describe whatever the dock is showing: the flight target, the destination, or here
+      if (open && this.dockBody && this.dockBody !== this.inspect) {
+        this.showInfo(this.dockBody, this.dockBody === this.app.state.focus ? 'Current location' : 'Destination');
+      }
+      this.setPeek('info', open);
+    });
+    $('dock-console').addEventListener('click', () => this.setPeek('console', !this.peeking('console')));
+    $('dock-go').addEventListener('click', () => this.app.engage());
+    $('dock-abort').addEventListener('click', () => this.app.abort());
     $('btn-help').addEventListener('click', () => this.showHelp(true));
     $('help-close').addEventListener('click', () => this.showHelp(false));
     $('help').addEventListener('click', (e) => { if (e.target.id === 'help') this.showHelp(false); });
@@ -187,16 +198,72 @@ export class UI {
 
   get menuOpen() { return $('toggles').classList.contains('open'); }
 
-  // Clear view: every panel fades out, leaving one small button to bring them back.
+  // Clear view: every panel fades out, leaving the show button and a small dock at the bottom.
   setChromeHidden(on) {
     this.uiHidden = on;
     this.setMenu(false);
+    this.closePeeks();
     document.body.classList.toggle('ui-hidden', on);
     $('btn-show-ui').hidden = !on;
+    $('dock').hidden = !on;
+    this.updateDock(true);
     this.panelRects = null;
     const focused = document.activeElement;
     if (on && focused && focused !== document.body) $('btn-show-ui').focus();
     if (!on && focused === $('btn-show-ui')) $('btn-hide-ui').focus();
+  }
+
+  // ---------------------------------------------------------------- clear-view dock
+  peeking(which) { return document.body.classList.contains(`peek-${which}`); }
+
+  // Show the details or flight panel above the dock. On narrow screens only one fits, so opening one
+  // closes the other.
+  setPeek(which, on) {
+    const body = document.body;
+    if (on && window.innerWidth < 720) body.classList.remove(`peek-${which === 'info' ? 'console' : 'info'}`);
+    body.classList.toggle(`peek-${which}`, on);
+    if (which === 'info' && on) {
+      $('info').classList.remove('collapsed');
+      $('info-collapse').setAttribute('aria-expanded', 'true');
+    }
+    $('dock-info').setAttribute('aria-pressed', String(this.peeking('info')));
+    $('dock-console').setAttribute('aria-pressed', String(this.peeking('console')));
+    this.panelRects = null;
+  }
+
+  closePeeks() {
+    const had = this.peeking('info') || this.peeking('console');
+    if (had) { this.setPeek('info', false); this.setPeek('console', false); }
+    return had;
+  }
+
+  // Where you're headed and how long it takes, or how the flight is going.
+  updateDock(force) {
+    if (!this.uiHidden) return;
+    const now = performance.now();
+    if (!force && now - this.lastDock < 200) return;
+    this.lastDock = now;
+    const { state, travel } = this.app;
+    const flying = travel.active;
+    const target = flying ? travel.target : state.destination;
+    const here = !flying && target === state.focus;
+    const body = here ? state.focus : target;
+    this.dockBody = body;
+    $('dock-name').textContent = body.name;
+    $('dock-dot').style.setProperty('--c', body.data.color);
+    let sub;
+    if (flying) sub = `${fmtDuration(travel.shipRemaining)} left · ${fmtCompact(travel.remainingKm ?? 0)}`;
+    else if (here) sub = 'You are here';
+    else sub = `${fmtDuration(this.app.tripDistance(target) / state.speed.kms)} at ${state.speed.short}`;
+    $('dock-sub').textContent = sub;
+    $('dock-progress').hidden = !flying;
+    if (flying) $('dock-bar').style.width = `${(travel.progress * 100).toFixed(1)}%`;
+    $('dock-go').hidden = flying || here;
+    $('dock-go').title = here ? 'Engage' : `Engage: fly to ${target.name}`;
+    $('dock-abort').hidden = !flying;
+    const label = flying ? 'Flight status' : 'Flight controls';
+    $('dock-console').title = label;
+    $('dock-console').setAttribute('aria-label', label);
   }
 
   showHelp(on) { $('help').hidden = !on; if (on) $('help-close').focus(); }
@@ -323,6 +390,7 @@ export class UI {
 
   // ---------------------------------------------------------------- trip estimate
   refreshTrip(force) {
+    if (force) this.updateDock(true);
     const now = performance.now();
     if (!force && now - this.lastTrip < 500) return;
     this.lastTrip = now;
@@ -375,6 +443,8 @@ export class UI {
   // ---------------------------------------------------------------- flight HUD
   showFlight(on, target) {
     $('flight').hidden = !on;
+    document.body.classList.toggle('flying', on);
+    if (on && this.uiHidden && window.innerWidth < 720) this.setPeek('info', false);
     if (target) $('flight-target').textContent = target.name;
     for (const id of ['dest', 'speed', 'mode']) $(id).disabled = on;
   }
@@ -460,11 +530,11 @@ export class UI {
     const now = performance.now();
     if (!this.panelRects || now - this.panelRectsAt > 300) {
       this.panelRectsAt = now;
-      const panels = this.uiHidden ? ['#btn-show-ui']
+      const panels = this.uiHidden ? ['#btn-show-ui', '#dock', '#info', '#console', '#flight']
         : ['#zoom', '#info', '#console', '.clock', '.brand', '.toggles', '#tog-group', '#flight'];
       this.panelRects = panels
         .map((sel) => document.querySelector(sel))
-        .filter((n) => n && !n.hidden && n.getClientRects().length > 0)
+        .filter((n) => n && !n.hidden && n.getClientRects().length > 0 && getComputedStyle(n).visibility !== 'hidden')
         .map((n) => { const r = n.getBoundingClientRect(); return [r.left - 4, r.top - 4, r.right + 4, r.bottom + 4]; });
     }
     const placed = [...this.panelRects];

@@ -111,6 +111,26 @@
 <button class="icon-btn show-ui" type="button" id="btn-show-ui" hidden aria-label="Show controls" title="Show controls (H)">
   <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 10s2.8-5 7.5-5 7.5 5 7.5 5-2.8 5-7.5 5-7.5-5-7.5-5z"/><circle cx="10" cy="10" r="2.3"/></svg>
 </button>
+<!-- Clear-view dock: where you're headed, plus one-tap access to details, flight controls and Engage. -->
+<div id="dock" class="dock" role="toolbar" aria-label="Quick controls" hidden>
+  <div class="dock-dest">
+    <span class="dock-dot" id="dock-dot"></span>
+    <span class="dock-text"><b id="dock-name">—</b><span id="dock-sub"></span></span>
+    <span class="dock-progress" id="dock-progress" hidden><i id="dock-bar"></i></span>
+  </div>
+  <button class="dock-btn" id="dock-info" type="button" aria-pressed="false" aria-label="Details" title="Details">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.2"/><path d="M10 9.2v4.6M10 6.3v.2"/></svg>
+  </button>
+  <button class="dock-btn" id="dock-console" type="button" aria-pressed="false" aria-label="Flight controls" title="Flight controls">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 6h7.5M15 6h1.5M3.5 14h1.5M9 14h7.5"/><circle cx="13" cy="6" r="2"/><circle cx="7" cy="14" r="2"/></svg>
+  </button>
+  <button class="dock-btn dock-go" id="dock-go" type="button" aria-label="Engage" title="Engage">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5"/></svg>
+  </button>
+  <button class="dock-btn dock-abort" id="dock-abort" type="button" aria-label="Abort flight" title="Abort flight (Esc)" hidden>
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/></svg>
+  </button>
+</div>
 
 <aside id="info" class="panel" aria-live="polite">
   <div class="info-head">
@@ -201,7 +221,7 @@
       <div><span class="keys"><kbd>Arrows</kbd> <kbd>W</kbd> <kbd>S</kbd></span><span class="what">Orbit and zoom from the keyboard</span></div>
       <div><span class="keys"><kbd>R</kbd></span><span class="what">Re-centre the view</span></div>
       <div><span class="keys"><kbd>G</kbd></span><span class="what">Show spacetime curvature: gravity wells and bent starlight</span></div>
-      <div><span class="keys"><kbd>H</kbd> or the eye button</span><span class="what">Hide every control for a clear view; press again to bring them back</span></div>
+      <div><span class="keys"><kbd>H</kbd> or the eye button</span><span class="what">Hide every control for a clear view. The dock at the bottom keeps details, flight controls and Engage one tap away</span></div>
       <div><span class="keys"><kbd>Space</kbd></span><span class="what">Pause or resume time</span></div>
       <div><span class="keys"><kbd>Esc</kbd></span><span class="what">Abort a flight</span></div>
     </div>

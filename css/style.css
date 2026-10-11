@@ -287,6 +287,56 @@ body.ui-hidden :is(.topbar, .toggles, #info, #console, .zoom, .hud, #toast) { op
   0%, 40% { opacity: 1; color: var(--amber); border-color: var(--amber); box-shadow: 0 0 14px -2px var(--amber); }
 }
 
+/* Dock: the only control left in clear view. Details and flight controls open above it on demand. */
+.dock {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); z-index: 6;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 2px;
+  max-width: calc(100% - 2 * var(--gutter));
+  padding: 5px 5px 5px 14px;
+  background: var(--glass-strong);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
+  animation: dock-in 0.3s ease-out;
+}
+@keyframes dock-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+.dock-dest { position: relative; display: flex; align-items: center; gap: 9px; min-width: 0; padding: 4px 10px 4px 0; }
+.dock-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--c, #888); box-shadow: 0 0 8px -1px var(--c, #888); }
+.dock-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dock-text b { font: 600 12.5px/1.1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dock-text span { font: 500 10.5px/1.1 var(--font-data); color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dock-progress { position: absolute; left: 19px; right: 10px; bottom: -2px; height: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.dock-progress i { display: block; height: 100%; width: 0; background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+.dock-btn {
+  flex: none; width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border-radius: 50%; border: 1px solid transparent;
+  background: transparent; color: var(--ink-dim);
+}
+.dock-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.dock-btn:hover { color: var(--ink); background: rgba(255, 255, 255, 0.05); }
+.dock-btn[aria-pressed="true"] { color: var(--ice); background: rgba(147, 214, 255, 0.1); border-color: rgba(147, 214, 255, 0.28); }
+.dock-go { margin-left: 4px; background: var(--amber); color: var(--amber-ink); box-shadow: 0 0 0 1px rgba(255, 181, 71, 0.4), 0 4px 16px -4px rgba(255, 181, 71, 0.7); }
+.dock-go:hover { background: var(--amber); color: var(--amber-ink); filter: brightness(1.08); }
+.dock-go svg { stroke-width: 2.1; }
+.dock-abort { margin-left: 4px; color: var(--danger); border-color: rgba(255, 122, 102, 0.35); }
+.dock-abort:hover { color: var(--danger); background: rgba(255, 122, 102, 0.1); }
+
+/* Panels opened from the dock sit above it instead of in their usual places. */
+body.ui-hidden { --dock-space: calc(env(safe-area-inset-bottom, 0px) + 14px + 52px + 10px); }
+body.ui-hidden.peek-info #info, body.ui-hidden.peek-console #console, body.ui-hidden.peek-console #flight {
+  opacity: 1; visibility: visible; pointer-events: auto;
+}
+/* mid-flight, the flight icon shows the flight readout only; the console is locked anyway */
+body.ui-hidden.flying.peek-console #console { opacity: 0; visibility: hidden; pointer-events: none; }
+body.ui-hidden #console { bottom: var(--dock-space); }
+body.ui-hidden #flight { top: calc(env(safe-area-inset-top, 0px) + 62px); }
+body.ui-hidden #info { max-height: calc(100% - 58px - var(--dock-space) - 12px - env(safe-area-inset-top, 0px)); }
+body.ui-hidden.peek-console:not(.flying) #info { max-height: calc(100% - 58px - var(--dock-space) - var(--console-h, 170px) - 22px - env(safe-area-inset-top, 0px)); }
+
 /* ---------------------------------------------------------------- info panel */
 #info {
   top: calc(env(safe-area-inset-top, 0px) + 58px);
@@ -489,6 +539,8 @@ dd { margin: 0; text-align: right; font: 500 12.5px/1.4 var(--font-data); font-v
   .tog-extra .icon-btn { width: 38px; height: 38px; background: transparent; }
   #info { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--console-h, 170px) + 20px); left: var(--gutter); right: var(--gutter); width: auto; max-height: calc(100% - var(--console-h, 170px) - 20px - 150px - env(safe-area-inset-top, 0px)); }
   #info.collapsed { max-height: none; }
+  body.ui-hidden #info { bottom: var(--dock-space); max-height: min(60%, calc(100% - 52px - 100px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); }
+  .dock { padding-left: 12px; }
   .info-head { padding: 10px 12px; }
   #info-name { font-size: 20px; }
   .swatch { width: 26px; height: 26px; }
@@ -510,5 +562,5 @@ dd { margin: 0; text-align: right; font: 500 12.5px/1.4 var(--font-data); font-v
 }
 @media (prefers-reduced-motion: reduce) {
   .brand-mark.big { animation: none; }
-  #toast, #cockpit, #loader, .show-ui { transition: none; animation: none; }
+  #toast, #cockpit, #loader, .show-ui, .dock { transition: none; animation: none; }
 }

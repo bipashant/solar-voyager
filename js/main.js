@@ -251,6 +251,8 @@ rig.onTap = (x, y) => {
   if (b) {
     if (b === state.focus) ui.showInfo(b, 'Current location');
     else app.setDestination(b.id);
+  } else if (window.innerWidth < 720) {
+    ui.closePeeks(); // on a phone, tapping empty space puts the panels away again
   }
 };
 rig.onDoubleTap = (x, y) => {
@@ -263,7 +265,8 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!document.getElementById('help').hidden) ui.showHelp(false);
     else if (ui.menuOpen) ui.setMenu(false);
-    else app.abort();
+    else if (travel.active) app.abort();
+    else ui.closePeeks();
   } else if (e.key === ' ') {
     e.preventDefault();
     app.setTimeRate(state.timeRate.rate === 0 ? state.lastRate.id : 'pause');
@@ -374,6 +377,7 @@ function frame(now) {
 
   ui.updateLabels(viewport);
   ui.updateZoom();
+  ui.updateDock(false);
   ui.refreshLive(false);
   ui.refreshTrip(false);
   ui.updateClock(state.simMs);
