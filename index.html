@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solar Voyager</title>
+<meta name="description" content="Fly a spaceship through a true-scale, real-time model of the Solar System.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="view" aria-label="Solar System view. Drag to orbit, scroll to zoom."></canvas>
+<div id="labels" aria-hidden="true"></div>
+<div id="sky-labels" aria-hidden="true"></div>
+
+<div id="cockpit" aria-hidden="true">
+  <svg class="canopy" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="strutL" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#020306" stop-opacity="0.96"/>
+        <stop offset="1" stop-color="#0a0f18" stop-opacity="0.88"/>
+      </linearGradient>
+      <linearGradient id="strutR" x1="1" y1="0" x2="0" y2="0">
+        <stop offset="0" stop-color="#020306" stop-opacity="0.96"/>
+        <stop offset="1" stop-color="#0a0f18" stop-opacity="0.88"/>
+      </linearGradient>
+    </defs>
+    <polygon points="0,0 9,0 1.6,34 0,38" fill="url(#strutL)"/>
+    <polygon points="100,0 91,0 98.4,34 100,38" fill="url(#strutR)"/>
+    <polygon points="0,100 0,80 2.2,100" fill="url(#strutL)"/>
+    <polygon points="100,100 100,80 97.8,100" fill="url(#strutR)"/>
+    <polyline class="edge" points="9,0 1.6,34 0,38" vector-effect="non-scaling-stroke"/>
+    <polyline class="edge" points="91,0 98.4,34 100,38" vector-effect="non-scaling-stroke"/>
+  </svg>
+  <div class="vignette"></div>
+  <svg class="reticle" viewBox="-60 -60 120 120">
+    <circle r="15" class="ret-ring"/>
+    <path d="M-44 0H-24M24 0H44M0 -44V-30M0 30V44" class="ret-tick"/>
+    <path d="M-52 -40V-52H-40M52 -40V-52H40M-52 40V52H-40M52 40V52H40" class="ret-corner"/>
+  </svg>
+</div>
+
+<div id="zoom" class="zoom" role="group" aria-label="Zoom">
+  <button id="zoom-in" class="zoom-btn" type="button" aria-label="Zoom in" title="Zoom in · hold to keep zooming (W or +)">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>
+  </button>
+  <div class="zoom-track">
+    <input id="zoom-slider" type="range" min="0" max="1000" step="1" value="500" aria-label="Zoom level, from deep space to the surface">
+  </div>
+  <button id="zoom-out" class="zoom-btn" type="button" aria-label="Zoom out" title="Zoom out · hold to keep zooming (S or −)">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12"/></svg>
+  </button>
+  <div class="zoom-readout"><span>Alt</span><b id="zoom-alt">—</b></div>
+</div>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="7.5"/>
+      <ellipse cx="20" cy="20" rx="17" ry="5.2" transform="rotate(-18 20 20)"/>
+    </svg>
+    <div>
+      <div class="brand-name">Solar Voyager</div>
+      <div class="brand-sub">True scale · real positions</div>
+    </div>
+  </div>
+  <div class="clock">
+    <div class="clock-readout">
+      <span id="clock-date">—</span>
+      <span id="clock-time">—</span>
+    </div>
+    <div class="clock-controls">
+      <label class="visually-hidden" for="time-rate">Simulation speed</label>
+      <select id="time-rate"></select>
+      <button id="time-now" class="btn-ghost" type="button" title="Jump back to the current date and time">Now</button>
+    </div>
+  </div>
+</header>
+
+<nav class="toggles" aria-label="View options">
+  <button class="tog" type="button" data-toggle="orbits" aria-pressed="true">Orbits</button>
+  <button class="tog" type="button" data-toggle="labels" aria-pressed="true">Labels</button>
+  <button class="tog" type="button" data-toggle="constellations" aria-pressed="false">Constellations</button>
+  <button class="tog" type="button" data-toggle="starnames" aria-pressed="false">Star names</button>
+  <button class="tog" type="button" data-toggle="cockpit" aria-pressed="true">Cockpit</button>
+  <button class="icon-btn" type="button" id="btn-help" aria-label="Controls and help">?</button>
+  <button class="icon-btn" type="button" id="btn-full" aria-label="Toggle full screen">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5"/></svg>
+  </button>
+</nav>
+
+<aside id="info" class="panel" aria-live="polite">
+  <div class="info-head">
+    <span class="swatch" id="info-swatch"></span>
+    <div class="info-title">
+      <div class="eyebrow" id="info-role">Current location</div>
+      <h2 id="info-name">Earth</h2>
+      <div class="info-sub" id="info-sub"></div>
+    </div>
+    <button id="info-collapse" class="icon-btn small" type="button" aria-expanded="true" aria-label="Collapse details">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 12l5-5 5 5"/></svg>
+    </button>
+  </div>
+  <div class="info-body">
+    <dl class="live" id="info-live"></dl>
+    <dl class="facts" id="info-facts"></dl>
+    <p class="blurb" id="info-blurb"></p>
+    <div class="chip-group" id="info-features-wrap">
+      <div class="eyebrow">Surface features · tap to look</div>
+      <div class="chips" id="info-features"></div>
+    </div>
+    <div class="chip-group" id="info-moons-wrap">
+      <div class="eyebrow" id="info-moons-title">Moons</div>
+      <div class="chips" id="info-moons"></div>
+    </div>
+    <button id="info-go" class="btn-ghost wide" type="button">Set as destination</button>
+  </div>
+</aside>
+
+<section id="console" class="panel" aria-label="Flight console">
+  <div class="console-row">
+    <div class="field">
+      <label for="dest">Destination</label>
+      <select id="dest"></select>
+    </div>
+    <div class="field">
+      <label for="speed">Ship speed</label>
+      <select id="speed"></select>
+    </div>
+    <div class="field">
+      <label for="mode">Flight clock</label>
+      <select id="mode"></select>
+    </div>
+    <button id="engage" class="btn-engage" type="button">
+      <span>Engage</span>
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5"/></svg>
+    </button>
+  </div>
+  <div class="trip" id="trip"></div>
+  <details id="compare">
+    <summary>Compare travel times at every speed</summary>
+    <div class="compare-scroll"><table id="compare-table"></table></div>
+  </details>
+</section>
+
+<section id="flight" class="hud" hidden aria-live="polite">
+  <div class="flight-title"><span class="eyebrow">En route to</span><b id="flight-target">—</b></div>
+  <div class="flight-progress"><div id="flight-bar"></div></div>
+  <div class="flight-grid">
+    <div><span>Ship clock</span><b id="flight-elapsed">—</b></div>
+    <div><span>Time left</span><b id="flight-remaining">—</b></div>
+    <div><span>Distance left</span><b id="flight-dist">—</b></div>
+    <div><span>Velocity</span><b id="flight-vel">—</b></div>
+  </div>
+  <div class="flight-foot">
+    <span id="flight-compress"></span>
+    <button id="abort" class="btn-ghost" type="button">Abort <kbd>Esc</kbd></button>
+  </div>
+</section>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<div id="help" class="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <h2 id="help-title">Flight manual</h2>
+    <div class="help-grid">
+      <div><span class="keys"><kbd>Drag</kbd></span><span class="what">Orbit the current body</span></div>
+      <div><span class="keys"><kbd>Scroll</kbd> or <kbd>Pinch</kbd></span><span class="what">Zoom from deep space down to the surface</span></div>
+      <div><span class="keys"><kbd>+</kbd> <kbd>−</kbd> buttons or slider</span><span class="what">Zoom with the control on the left; hold a button to keep zooming</span></div>
+      <div><span class="keys"><kbd>Right-drag</kbd> or <kbd>Shift</kbd> + drag</span><span class="what">Look around the cockpit</span></div>
+      <div><span class="keys"><kbd>Tap</kbd></span><span class="what">Pick a planet, moon or label as the destination</span></div>
+      <div><span class="keys"><kbd>Double-tap</kbd></span><span class="what">Fly there straight away</span></div>
+      <div><span class="keys"><kbd>Arrows</kbd> <kbd>W</kbd> <kbd>S</kbd></span><span class="what">Orbit and zoom from the keyboard</span></div>
+      <div><span class="keys"><kbd>R</kbd></span><span class="what">Re-centre the view</span></div>
+      <div><span class="keys"><kbd>Space</kbd></span><span class="what">Pause or resume time</span></div>
+      <div><span class="keys"><kbd>Esc</kbd></span><span class="what">Abort a flight</span></div>
+    </div>
+    <p class="help-note">Sizes and distances are to true scale, so most worlds are tiny dots until you get close. Planet positions follow the real date: Earth's day side and the Moon's phase match the sky right now. Cinematic flights compress time, and the ship clock shows how long the trip really takes at the speed you chose.</p>
+    <p class="help-credit">Planet maps: Solar System Scope (CC BY 4.0), based on NASA imagery. Orbits: JPL approximate Keplerian elements. Moons without spacecraft maps are generated from their known colours and terrain.</p>
+    <button id="help-close" class="btn-engage" type="button"><span>Back to the cockpit</span></button>
+  </div>
+</div>
+
+<div id="loader">
+  <div class="loader-inner">
+    <svg class="brand-mark big" viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="7.5"/>
+      <ellipse cx="20" cy="20" rx="17" ry="5.2" transform="rotate(-18 20 20)"/>
+    </svg>
+    <div class="loader-title">Solar Voyager</div>
+    <div class="loader-bar"><div id="loader-fill"></div></div>
+    <div class="loader-text" id="loader-text">Loading planetary maps…</div>
+  </div>
+</div>
+
+<script>
+  if (location.protocol === 'file:') {
+    document.getElementById('loader-text').textContent =
+      'Browsers block 3D textures on pages opened straight from disk. In this folder run "python3 -m http.server 8000", then open http://localhost:8000.';
+  }
+</script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

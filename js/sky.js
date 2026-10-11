@@ -1,0 +1,133 @@
+// Background sky: Milky Way panorama in galactic coordinates, bright stars and constellation figures.
+import * as THREE from 'three';
+import { STARS, STAR_BY_NAME, CONSTELLATIONS, NAMED_STARS } from './stars.js';
+import { raDecToScene, sceneToGalacticMatrix } from './ephemeris.js';
+import * as S from './shaders.js';
+
+const R_SKY = 100;
+
+function bvToColor(bv) {
+  const stops = [
+    [-0.4, [0.61, 0.70, 1.0]], [0.0, [0.79, 0.85, 1.0]], [0.3, [0.97, 0.97, 1.0]], [0.6, [1.0, 0.96, 0.91]],
+    [0.9, [1.0, 0.89, 0.77]], [1.2, [1.0, 0.82, 0.63]], [1.5, [1.0, 0.75, 0.48]], [2.0, [1.0, 0.6, 0.3]],
+  ];
+  if (bv <= stops[0][0]) return stops[0][1];
+  for (let i = 1; i < stops.length; i++) {
+    if (bv <= stops[i][0]) {
+      const [b0, c0] = stops[i - 1], [b1, c1] = stops[i];
+      const t = (bv - b0) / (b1 - b0);
+      return c0.map((c, k) => c + (c1[k] - c) * t);
+    }
+  }
+  return stops[stops.length - 1][1];
+}
+
+export class Sky {
+  constructor(textures) {
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
+    this.textures = textures;
+
+    this.milkyMat = new THREE.ShaderMaterial({
+      vertexShader: S.SKY_VERT, fragmentShader: S.SKY_FRAG, side: THREE.BackSide, depthWrite: false, depthTest: false,
+      toneMapped: false,
+      uniforms: { uMilky: { value: textures.placeholder }, uGal: { value: sceneToGalacticMatrix() }, uBright: { value: 1.25 } },
+    });
+    const sphere = new THREE.Mesh(new THREE.SphereGeometry(R_SKY, 96, 48), this.milkyMat);
+    sphere.renderOrder = 0;
+    this.scene.add(sphere);
+
+    // Bright stars
+    const n = STARS.length;
+    const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), size = new Float32Array(n);
+    const v = new THREE.Vector3();
+    STARS.forEach((s, i) => {
+      raDecToScene(s.ra, s.dec, v).multiplyScalar(R_SKY * 0.95);
+      s.dir = v.clone().normalize();
+      pos.set([v.x, v.y, v.z], i * 3);
+      col.set(bvToColor(s.bv), i * 3);
+      size[i] = THREE.MathUtils.clamp(6.2 - 1.45 * s.mag, 1.6, 10);
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+    this.starMat = new THREE.ShaderMaterial({
+      vertexShader: S.STAR_VERT, fragmentShader: S.STAR_FRAG, transparent: true, depthTest: false, depthWrite: false,
+      blending: THREE.AdditiveBlending, toneMapped: false,
+      uniforms: { uScale: { value: Math.min(window.devicePixelRatio, 2) }, uBright: { value: 1.0 } },
+    });
+    const stars = new THREE.Points(geo, this.starMat);
+    stars.renderOrder = 2;
+    stars.frustumCulled = false;
+    this.scene.add(stars);
+
+    // Constellation figures
+    const seg = [];
+    this.constellationAnchors = [];
+    for (const c of CONSTELLATIONS) {
+      const centroid = new THREE.Vector3();
+      const used = new Set();
+      for (const line of c.lines) {
+        for (let i = 0; i < line.length - 1; i++) {
+          const a = STAR_BY_NAME[line[i]], b = STAR_BY_NAME[line[i + 1]];
+          if (!a || !b) { console.warn('Missing star', line[i], line[i + 1]); continue; }
+          // shorten each segment slightly so lines don't run into the stars
+          const pa = a.dir.clone(), pb = b.dir.clone();
+          const ang = pa.angleTo(pb);
+          const trim = Math.min(0.18, 0.012 / Math.max(ang, 1e-4));
+          const qa = pa.clone().lerp(pb, trim).normalize().multiplyScalar(R_SKY * 0.94);
+          const qb = pb.clone().lerp(pa, trim).normalize().multiplyScalar(R_SKY * 0.94);
+          seg.push(qa.x, qa.y, qa.z, qb.x, qb.y, qb.z);
+          used.add(a.name); used.add(b.name);
+        }
+      }
+      for (const name of used) centroid.add(STAR_BY_NAME[name].dir);
+      this.constellationAnchors.push({ name: c.name, dir: centroid.normalize() });
+    }
+    const lgeo = new THREE.BufferGeometry();
+    lgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(seg), 3));
+    this.lineMat = new THREE.ShaderMaterial({
+      vertexShader: S.LINE_SKY_VERT, fragmentShader: S.LINE_SKY_FRAG, transparent: true, depthTest: false, depthWrite: false,
+      toneMapped: false,
+      uniforms: { uColor: { value: new THREE.Color(0.55, 0.72, 1.0) }, uOpacity: { value: 0.32 } },
+    });
+    this.lines = new THREE.LineSegments(lgeo, this.lineMat);
+    this.lines.renderOrder = 1;
+    this.lines.frustumCulled = false;
+    this.scene.add(this.lines);
+
+    this.namedStars = NAMED_STARS.map((name) => STAR_BY_NAME[name]).filter(Boolean);
+  }
+
+  async loadMilkyWay() {
+    const lo = await this.textures.load('milkyway_2k');
+    this.milkyMat.uniforms.uMilky.value = lo;
+    return lo;
+  }
+
+  async upgradeMilkyWay() {
+    const name = this.textures.supports('milkyway_8k') ? 'milkyway_8k' : null;
+    if (!name) return;
+    const hi = await this.textures.load(name);
+    this.milkyMat.uniforms.uMilky.value = hi;
+  }
+
+  setConstellations(on) { this.lines.visible = on; }
+
+  sync(mainCamera) {
+    this.camera.quaternion.copy(mainCamera.quaternion);
+    this.camera.fov = mainCamera.fov;
+    this.camera.aspect = mainCamera.aspect;
+    this.camera.updateProjectionMatrix();
+    this.camera.updateMatrixWorld();
+  }
+
+  // Screen position of a sky direction, or null when behind the camera.
+  project(dir, viewport, out) {
+    const v = out.copy(dir).multiplyScalar(R_SKY).applyMatrix4(this.camera.matrixWorldInverse);
+    if (v.z >= 0) return null;
+    const pxPerRad = viewport.y / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
+    return { x: (v.x / -v.z) * pxPerRad + viewport.x / 2, y: (-v.y / -v.z) * pxPerRad + viewport.y / 2 };
+  }
+}
