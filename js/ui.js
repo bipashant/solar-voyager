@@ -328,11 +328,24 @@ export class UI {
       : tr.warp === 1 ? 'Real time' : `Time-lapse ×${tr.warp.toLocaleString('en-US')}`;
   }
 
+  // Shown in the browser's own time zone and locale; the tooltip gives the UTC equivalent.
   updateClock(ms) {
+    const sec = Math.floor(ms / 1000);
+    if (sec === this.lastClockSec) return;
+    this.lastClockSec = sec;
     const d = new Date(ms);
     if (isNaN(d)) return;
-    $('clock-date').textContent = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
-    $('clock-time').textContent = `${d.toISOString().slice(11, 19)} UTC`;
+    this.clockFmt ||= {
+      date: new Intl.DateTimeFormat(undefined, { day: '2-digit', month: 'short', year: 'numeric' }),
+      time: new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' }),
+    };
+    const parts = this.clockFmt.time.formatToParts(d);
+    const zone = parts.find((p) => p.type === 'timeZoneName')?.value || '';
+    const time = parts.filter((p) => p.type !== 'timeZoneName').map((p) => p.value).join('').trim();
+    $('clock-date').textContent = this.clockFmt.date.format(d);
+    $('clock-time').textContent = time;
+    $('clock-zone').textContent = zone;
+    $('clock').title = `${d.toISOString().slice(0, 10)} ${d.toISOString().slice(11, 19)} UTC`;
   }
 
   // ---------------------------------------------------------------- labels

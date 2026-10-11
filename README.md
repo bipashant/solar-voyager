@@ -76,7 +76,7 @@ In VS Code, the *Live Server* extension also works.
    - **Real time** flies at the true speed. At light speed, Earth to the Moon takes 1.3 real seconds and Earth to Mars takes several minutes. The ×100 to ×1 million options speed that up.
 7. **Press Engage.** The flight display shows the ship clock, time left, distance left and velocity. Press **Esc** or **Abort** to stop wherever you are.
 8. **Explore on arrival.** You arrive on the sunlit side and the console suggests the next stop, usually the largest moon. Use the zoom buttons on the left edge to dive towards the clouds.
-9. **Play with time.** The clock in the top left can run at up to one year per second. Watch Io whip around Jupiter, the Great Red Spot rotate into daylight, or a moon slide out of its planet's shadow. **Now** jumps back to the present.
+9. **Play with time.** The clock in the top left shows the simulated date in your own time zone (hover over it for UTC) and can run at up to one year per second. Watch Io whip around Jupiter, the Great Red Spot rotate into daylight, or a moon slide out of its planet's shadow. **Now** jumps back to the present.
 10. **Switch on the sky overlays.** The buttons at the top right toggle orbits, labels, constellation figures, star names and the cockpit frame.
 
 ---

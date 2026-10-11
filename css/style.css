@@ -242,8 +242,9 @@ select option, select optgroup { background: #0d1420; color: var(--ink); }
   width: max-content;
   max-width: calc(100vw - 2 * var(--gutter));
 }
-.clock-readout { display: flex; gap: 10px; font: 500 13px/1 var(--font-data); font-variant-numeric: tabular-nums; color: var(--ice); }
+.clock-readout { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font: 500 13px/1 var(--font-data); font-variant-numeric: tabular-nums; color: var(--ice); }
 .clock-readout #clock-date { color: var(--ink); }
+.clock-readout #clock-zone { margin-left: -4px; font-size: 11px; color: var(--ink-dim); }
 .clock-controls { display: flex; gap: 6px; }
 .clock-controls select { width: 132px; padding-block: 5px; font-size: 12px; }
 
