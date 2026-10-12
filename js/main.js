@@ -402,7 +402,9 @@ Promise.allSettled(jobs).then((results) => {
   const failed = results.filter((r) => r.status === 'rejected').length;
   ui.hideLoader();
   if (failed) ui.toast(`${failed} map${failed > 1 ? 's' : ''} failed to load; those worlds use generated surfaces.`, 5000);
-  else ui.toast('Pick a destination and speed below, then press <b>Engage</b>.', 4500);
+  else ui.toast(ui.toggles.console
+    ? 'Pick a destination and speed below, then press <b>Engage</b>.'
+    : 'Tap a world to choose it, then the <b>arrow</b> below to fly there. <b>View</b> brings back the rest.', 5000);
   if (location.hash === '#poster') poster.open(); // shareable link straight to the studio
   sky.upgradeMilkyWay().catch(() => {});
   system.upgradeTextures(state.focus);

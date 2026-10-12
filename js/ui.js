@@ -16,7 +16,10 @@ const PARENT_LABEL = { earth: 'Earth', mars: 'Mars', jupiter: 'Jupiter', saturn:
 export class UI {
   constructor(app) {
     this.app = app;
-    this.toggles = { orbits: true, labels: true, deepsky: true, constellations: false, starnames: false, curvature: false, cockpit: true, info: true, console: true };
+    // Phones start in a calm layout: logo and View at the top, a collapsed Engage dock at the bottom.
+    // Everything else is one switch away under View > Panels.
+    const wide = window.innerWidth >= 720;
+    this.toggles = { orbits: true, labels: true, deepsky: true, constellations: false, starnames: false, curvature: false, cockpit: true, info: false, console: wide, clock: wide, zoom: wide };
     this.labelEls = new Map();
     this.featureEls = [];
     this.skyEls = { const: [], names: [] };
@@ -215,6 +218,10 @@ export class UI {
     const count = Object.entries(this.toggles).filter(([k, v]) => v && document.querySelector(`.tog[data-toggle="${k}"]`)).length;
     $('view-count').textContent = count;
     if (key === 'orbits') this.app.system.showOrbits = on;
+    if (key === 'clock' || key === 'zoom') {
+      document.body.classList.toggle(`no-${key}`, !on);
+      this.panelRects = null;
+    }
     if (key === 'info' || key === 'console') {
       document.body.classList.toggle(`no-${key}`, !on);
       if (key === 'info' && on) {
