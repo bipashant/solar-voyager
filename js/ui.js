@@ -81,7 +81,7 @@ export class UI {
     });
     $('info-go').addEventListener('click', () => this.app.setDestination(this.inspect.id));
 
-    // Phones: the view toggles live in a menu behind one button; a tap anywhere else closes it.
+    // The View dropdown stays open while you flip several switches; a tap anywhere else closes it.
     $('btn-layers').addEventListener('click', () => this.setMenu(!$('toggles').classList.contains('open')));
     document.addEventListener('pointerdown', (e) => {
       if (!$('toggles').contains(e.target)) this.setMenu(false);
@@ -99,15 +99,22 @@ export class UI {
     $('dock-console').addEventListener('click', () => this.setPeek('console', !this.peeking('console')));
     $('dock-go').addEventListener('click', () => this.app.engage());
     $('dock-abort').addEventListener('click', () => this.app.abort());
-    $('btn-help').addEventListener('click', () => this.showHelp(true));
+    // Poster, help and full screen sit in the top row on wide screens and inside the View menu on phones.
+    const actions = {
+      poster: () => this.app.openPoster?.(),
+      help: () => this.showHelp(true),
+      fullscreen: () => {
+        try {
+          if (document.fullscreenElement) document.exitFullscreen();
+          else document.documentElement.requestFullscreen?.().catch(() => {});
+        } catch { /* fullscreen not available */ }
+      },
+    };
+    for (const b of document.querySelectorAll('[data-action]')) {
+      b.addEventListener('click', () => { this.setMenu(false); actions[b.dataset.action]?.(); });
+    }
     $('help-close').addEventListener('click', () => this.showHelp(false));
     $('help').addEventListener('click', (e) => { if (e.target.id === 'help') this.showHelp(false); });
-    $('btn-full').addEventListener('click', () => {
-      try {
-        if (document.fullscreenElement) document.exitFullscreen();
-        else document.documentElement.requestFullscreen?.().catch(() => {});
-      } catch { /* fullscreen not available */ }
-    });
     if (window.innerWidth < 720) $('info').classList.add('collapsed');
     const setConsoleH = () => document.documentElement.style.setProperty('--console-h', `${$('console').offsetHeight}px`);
     if (window.ResizeObserver) new ResizeObserver(setConsoleH).observe($('console'));
@@ -185,9 +192,11 @@ export class UI {
         const t = document.querySelector(`.tog[data-toggle="${k}"]`);
         if (!t) continue;
         t.classList.toggle('resting', !sky);
-        t.title = sky ? '' : 'Turn on Deep sky to see these';
+        if (sky) t.removeAttribute('title'); else t.title = 'Turn on Deep sky to see these';
       }
     }
+    const count = Object.entries(this.toggles).filter(([k, v]) => v && document.querySelector(`.tog[data-toggle="${k}"]`)).length;
+    $('view-count').textContent = count;
     if (key === 'orbits') this.app.system.showOrbits = on;
     if (key === 'curvature') {
       this.app.spacetime.setEnabled(on);

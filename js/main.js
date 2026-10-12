@@ -393,7 +393,7 @@ ui.showInfo(state.focus, 'Current location');
 
 // ---------------------------------------------------------------- poster studio
 const poster = new PosterStudio(app);
-document.getElementById('btn-poster').addEventListener('click', () => { ui.setMenu(false); poster.open(); });
+app.openPoster = () => poster.open();
 
 // ---------------------------------------------------------------- loading
 manager.onProgress = (url, loaded, total) => ui.setLoader(loaded / Math.max(total, 1));

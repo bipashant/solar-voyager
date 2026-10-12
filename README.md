@@ -80,7 +80,7 @@ In VS Code, the *Live Server* extension also works.
 7. **Press Engage.** The flight display shows the ship clock, time left, distance left and velocity. Press **Esc** or **Abort** to stop wherever you are.
 8. **Explore on arrival.** You arrive on the sunlit side and the console suggests the next stop, usually the largest moon. Use the zoom buttons on the left edge to dive towards the clouds.
 9. **Play with time.** The clock in the top left shows the simulated date in your own time zone (hover over it for UTC) and can run at up to one year per second. Watch Io whip around Jupiter, the Great Red Spot rotate into daylight, or a moon slide out of its planet's shadow. **Now** jumps back to the present.
-10. **Switch on the sky overlays.** The buttons at the top right toggle orbits, labels, constellation figures, star names, spacetime curvature and the cockpit frame. On a phone they sit behind the layers button. The eye button (or **H**) hides every control when you just want to look. A small dock stays at the bottom with your destination, so you can still check details or press Engage without bringing everything back.
+10. **Switch on the sky overlays.** The buttons at the top right toggle orbits, labels, constellation figures, star names, spacetime curvature and the cockpit frame. They live in the **View** dropdown, grouped by Solar System, Sky, Physics and Display. The eye button (or **H**) hides every control when you just want to look. A small dock stays at the bottom with your destination, so you can still check details or press Engage without bringing everything back.
 
 ---
 
@@ -103,7 +103,7 @@ In VS Code, the *Live Server* extension also works.
 | P, or the **Poster** button | Open the poster studio: the solar system on any date from 1800 to 2050, as a print-ready PNG (link straight to it with `#poster`) |
 | H, or the eye button (top right) | Hide every control for a clear, full-screen view; press again, or tap the small eye, to bring them back |
 | Dock (bottom, while controls are hidden) | Shows where you're headed and the trip time. Its icons open the details, open the flight controls (the flight readout while flying), and Engage or abort in one tap. On a phone, tap empty space to put panels away |
-| Layers button (phones) | Opens the view options: orbits, labels, constellations, star names, curvature, cockpit, help and full screen |
+| **View** button (top right) | Opens the display options, grouped: orbits and labels, deep sky, constellations and star names, curvature, cockpit. The badge counts the layers that are on. On phones it also holds Poster, Help and Full screen |
 | Space | Pause or resume time |
 | Enter | Engage (when nothing else has focus) |
 | Esc | Abort a flight, or close the help screen |

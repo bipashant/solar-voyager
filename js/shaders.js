@@ -926,7 +926,7 @@ uniform int uWellN;
 uniform vec3 uFoot;
 uniform vec3 uX0;
 uniform vec4 uLin;
-uniform float uRmin, uSpan, uExag, uDmax, uSide;
+uniform float uRmin, uSpan, uExag, uDmax;
 varying vec2 vQ;
 varying float vR;
 varying float vDepthN;
@@ -946,7 +946,7 @@ void main(){
   // Exaggerate, then ease off the very deepest part of each funnel so it stays on screen.
   float depth = U * uExag;
   depth /= 1.0 + abs(depth) / uDmax;
-  p.y -= uSide * depth;
+  p.y -= depth;
   vQ = q;
   vR = r;
   vDepthN = clamp(depth / uDmax, 0.0, 1.0);

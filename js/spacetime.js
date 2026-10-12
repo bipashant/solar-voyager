@@ -86,7 +86,6 @@ export class Spacetime {
       uOffs: { value: Array.from({ length: 16 }, () => new THREE.Vector2()) },
       uBaseExp: { value: 0 },
       uOpacity: { value: 0.6 },
-      uSide: { value: 1 }, // 1: sheet below the bodies, wells sink down; -1: above, wells rise up
     };
     this.mesh = new THREE.Mesh(sheetGeometry(), new THREE.ShaderMaterial({
       vertexShader: S.SHEET_VERT, fragmentShader: S.SHEET_FRAG, uniforms: this.uniforms,
@@ -101,8 +100,7 @@ export class Spacetime {
     this.frame = null;
     this.prev = null;
     this.blend = 1;
-    this.side = 1;
-    this.fade = 1;
+    this.fade = null;
     this.logE = null;
     this.logDmax = null;
     this.logX = null;
@@ -168,7 +166,7 @@ export class Spacetime {
       this.prev = this.frame;
       this.frame = f;
       this.blend = this.prev ? 0 : 1;
-      if (!this.prev) { this.side = camPos.y >= f.pos.y ? 1 : -1; this.fade = 1; }
+      if (!this.prev) this.fade = null;
     }
     this.blend = Math.min(1, this.blend + dt / 1.4);
     const w = THREE.MathUtils.smootherstep(this.blend, 0, 1);
@@ -197,19 +195,9 @@ export class Spacetime {
     }
     u.uLin.value.set(lin.G.x, lin.G.y, lin.G.z, lin.C);
     u.uX0.value.copy(f.pos).sub(camPos);
-    // The sheet runs just beneath the frame body, which sits on it like a ball on a trampoline. Seen from
-    // below, it moves to the far side so it never cuts across the planet; the swap hides behind a quick fade.
-    const centreY = p ? p.pos.y + (f.pos.y - p.pos.y) * w : f.pos.y;
-    const want = (camPos.y - centreY) * this.side < -0.1 * f.maxRadius ? -this.side : this.side;
-    if (want !== this.side) {
-      this.fade = Math.max(0, this.fade - dt / 0.18);
-      if (this.fade === 0) this.side = want;
-    } else {
-      this.fade = Math.min(1, this.fade + dt / 0.3);
-    }
-    u.uSide.value = this.side;
-    u.uOpacity.value = 0.6 * this.fade;
-    const floor = (b) => b.pos.y - this.side * b.maxRadius;
+    // The sheet runs just beneath the frame body, which sits on it like a ball on a trampoline. It is a
+    // floor: wells always sink downwards (towards ecliptic south).
+    const floor = (b) => b.pos.y - b.maxRadius;
     const planeY = p ? floor(p) + (floor(f) - floor(p)) * w : floor(f);
 
     // Depth scale: the frame body's well reaches 15% of your distance from it at 30% of that distance.
@@ -222,8 +210,14 @@ export class Spacetime {
     u.uExag.value = Math.exp(this.logE);
     u.uDmax.value = Math.exp(this.logDmax);
 
-    // Mesh extent around the point on the sheet straight below (or above) the camera.
+    // Seen from underneath, the floor would hang its wells towards you and cut across the planet, so it
+    // fades out as you orbit below it and back in as you rise above it.
     const h = camPos.y - planeY;
+    const vis = THREE.MathUtils.smoothstep(h / D, -0.01, 0.07);
+    this.fade = this.fade === null ? vis : this.fade + (vis - this.fade) * (1 - Math.exp(-dt * 6));
+    u.uOpacity.value = 0.6 * this.fade;
+
+    // Mesh extent around the point on the sheet straight below the camera.
     const base = Math.max(Math.abs(h), 0.02 * D, 1e-3);
     const rmin = 0.04 * base;
     const rmax = Math.max(40 * D, 400 * base);
