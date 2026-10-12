@@ -103,7 +103,8 @@ In VS Code, the *Live Server* extension also works.
 | P, or the **Poster** button | Open the poster studio: the solar system on any date from 1800 to 2050, as a print-ready PNG (link straight to it with `#poster`) |
 | H, or the eye button (top right) | Hide every control for a clear, full-screen view; press again, or tap the small eye, to bring them back |
 | Dock (bottom, while controls are hidden) | Shows where you're headed and the trip time. Its icons open the details, open the flight controls (the flight readout while flying), and Engage or abort in one tap. On a phone, tap empty space to put panels away |
-| **View** button (top right) | Opens the display options, grouped: orbits and labels, deep sky, constellations and star names, curvature, cockpit. The badge counts the layers that are on. On phones it also holds Poster, Help and Full screen |
+| **View** button (top right) | Opens the display options, grouped: orbits and labels, deep sky, constellations and star names, curvature, cockpit, and the **Details** and **Flight console** panels. The badge counts what is on. On phones it also holds Poster, Help and Full screen |
+| × on a panel | Closes the Details panel or the Flight console and switches it off under View. While the console is closed, a small dock at the bottom keeps the destination, trip time and Engage one tap away |
 | Space | Pause or resume time |
 | Enter | Engage (when nothing else has focus) |
 | Esc | Abort a flight, or close the help screen |

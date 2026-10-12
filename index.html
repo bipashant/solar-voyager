@@ -113,6 +113,11 @@
       <div class="eyebrow">Display</div>
       <button class="tog" type="button" data-toggle="cockpit" aria-pressed="true"><span class="tog-text"><b>Cockpit</b><small>Window frame and reticle</small></span><i class="switch" aria-hidden="true"></i></button>
     </div>
+    <div class="tog-section">
+      <div class="eyebrow">Panels</div>
+      <button class="tog" type="button" data-toggle="info" aria-pressed="true"><span class="tog-text"><b>Details</b><small>Facts and live figures for the selected world</small></span><i class="switch" aria-hidden="true"></i></button>
+      <button class="tog" type="button" data-toggle="console" aria-pressed="true"><span class="tog-text"><b>Flight console</b><small>Destination, ship speed and Engage</small></span><i class="switch" aria-hidden="true"></i></button>
+    </div>
     <div class="tog-actions">
       <button class="menu-action" type="button" data-action="poster"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="2.5" width="12" height="15" rx="1.2"/><circle cx="10" cy="9" r="1.6"/><circle cx="10" cy="9" r="4.2"/><path d="M7 14.5h6"/></svg><span>Make a poster</span><kbd>P</kbd></button>
       <button class="menu-action" type="button" data-action="help"><span class="q" aria-hidden="true">?</span><span>Controls and help</span></button>
@@ -161,6 +166,7 @@
     <button id="info-collapse" class="icon-btn small" type="button" aria-expanded="true" aria-label="Collapse details">
       <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 12l5-5 5 5"/></svg>
     </button>
+    <button class="icon-btn small panel-close-inline" type="button" data-close="info" aria-label="Close the details panel" title="Close · reopen it from View"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>
   </div>
   <div class="info-body">
     <dl class="live" id="info-live"></dl>
@@ -184,6 +190,10 @@
 </aside>
 
 <section id="console" class="panel" aria-label="Flight console">
+  <div class="panel-head">
+    <span class="eyebrow">Flight console</span>
+    <button class="panel-close" type="button" data-close="console" aria-label="Close the flight console" title="Close · reopen it from View"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>
+  </div>
   <div class="console-row">
     <div class="field">
       <label for="dest">Destination</label>
@@ -209,19 +219,22 @@
   </details>
 </section>
 
-<section id="flight" class="hud" hidden aria-live="polite">
-  <div class="flight-title"><span class="eyebrow">En route to</span><b id="flight-target">—</b></div>
+<section id="flight" class="hud" hidden aria-label="Flight status">
+  <button class="hud-main" id="flight-more" type="button" aria-expanded="false" aria-controls="flight-details" title="Flight details">
+    <span class="hud-dot" aria-hidden="true"></span>
+    <b id="flight-target">—</b>
+    <span class="hud-left" aria-live="polite"><span id="flight-remaining">—</span> left</span>
+  </button>
+  <button id="abort" class="hud-abort" type="button" aria-label="Abort flight" title="Abort flight (Esc)">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8"/></svg>
+  </button>
+  <div class="hud-sub"><span id="flight-dist-short">—</span><span id="flight-vel-short">—</span><span id="flight-compress"></span></div>
+  <dl class="hud-details" id="flight-details" hidden>
+    <dt>Ship clock</dt><dd id="flight-elapsed">—</dd>
+    <dt>Distance left</dt><dd id="flight-dist">—</dd>
+    <dt>Velocity</dt><dd id="flight-vel">—</dd>
+  </dl>
   <div class="flight-progress"><div id="flight-bar"></div></div>
-  <div class="flight-grid">
-    <div><span>Ship clock</span><b id="flight-elapsed">—</b></div>
-    <div><span>Time left</span><b id="flight-remaining">—</b></div>
-    <div><span>Distance left</span><b id="flight-dist">—</b></div>
-    <div><span>Velocity</span><b id="flight-vel">—</b></div>
-  </div>
-  <div class="flight-foot">
-    <span id="flight-compress"></span>
-    <button id="abort" class="btn-ghost" type="button">Abort <kbd>Esc</kbd></button>
-  </div>
 </section>
 
 <div id="toast" role="status" aria-live="polite"></div>

@@ -411,6 +411,18 @@ body.ui-hidden :is(.topbar, .toggles, #info, #console, .zoom, .hud, #toast) { op
 .dock-abort { margin-left: 4px; color: var(--danger); border-color: rgba(255, 122, 102, 0.35); }
 .dock-abort:hover { color: var(--danger); background: rgba(255, 122, 102, 0.1); }
 
+/* Panels closed with × (or switched off under View); the dock stands in for the console. */
+body.no-console #console, body.no-info #info { opacity: 0; visibility: hidden; pointer-events: none; }
+body.no-console { --console-h: 52px; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -4px -6px -3px 0; }
+.panel-close {
+  width: 24px; height: 24px; display: grid; place-items: center; flex: none;
+  border: 0; border-radius: 6px; background: transparent; color: var(--ink-faint);
+}
+.panel-close svg, .panel-close-inline svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.panel-close:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
+.info-head .panel-close-inline { margin-left: -6px; }
+
 /* Panels opened from the dock sit above it instead of in their usual places. */
 body.ui-hidden { --dock-space: calc(env(safe-area-inset-bottom, 0px) + 14px + 52px + 10px); }
 body.ui-hidden.peek-info #info, body.ui-hidden.peek-console #console, body.ui-hidden.peek-console #flight {
@@ -515,25 +527,49 @@ dd { margin: 0; text-align: right; font: 500 12.5px/1.4 var(--font-data); font-v
 
 /* ---------------------------------------------------------------- flight HUD */
 .hud {
-  position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 62px);
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 16px);
   transform: translateX(-50%);
-  width: min(460px, calc(100% - 2 * var(--gutter)));
-  padding: 12px 16px;
-  background: var(--glass-strong);
-  border: 1px solid rgba(255, 181, 71, 0.35);
-  border-radius: var(--radius);
-  backdrop-filter: blur(12px);
-  display: flex; flex-direction: column; gap: 10px;
   z-index: 5;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 6px;
+  width: max-content; min-width: 260px; max-width: calc(100% - 2 * var(--gutter));
+  padding: 6px 6px 9px 14px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
-.flight-title { display: flex; align-items: baseline; gap: 10px; }
-.flight-title b { font: 700 20px/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); }
-.flight-progress { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
-#flight-bar { height: 100%; width: 0; background: var(--amber); box-shadow: 0 0 10px var(--amber); }
-.flight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
-.flight-grid span { display: block; font: 500 10px/1.2 var(--font-data); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
-.flight-grid b { font: 500 15px/1.35 var(--font-data); font-variant-numeric: tabular-nums; color: var(--ink); }
-.flight-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--ink-dim); }
+.hud-main {
+  display: flex; align-items: baseline; gap: 10px; min-width: 0;
+  padding: 2px 0; border: 0; background: none; text-align: left;
+}
+.hud-dot { flex: none; align-self: center; width: 6px; height: 6px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: hud-pulse 1.6s ease-in-out infinite; }
+@keyframes hud-pulse { 50% { opacity: 0.35; } }
+.hud-main b { font: 700 13px/1.2 var(--font-display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud-left { font: 500 13px/1.2 var(--font-data); color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hud-abort {
+  width: 28px; height: 28px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: transparent; color: var(--ink-faint);
+}
+.hud-abort svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.hud-abort:hover { color: var(--danger); background: rgba(255, 122, 102, 0.1); }
+.hud-sub {
+  grid-column: 1 / -1;
+  display: flex; flex-wrap: wrap; gap: 0 12px;
+  padding-left: 16px;
+  font: 400 11px/1.4 var(--font-data); color: var(--ink-faint); font-variant-numeric: tabular-nums;
+}
+.hud-details {
+  grid-column: 1 / -1;
+  margin: 8px 8px 2px 16px; padding-top: 8px;
+  border-top: 1px solid var(--line);
+  grid-template-columns: auto 1fr; gap: 3px 14px;
+}
+.hud-details:not([hidden]) { display: grid; }
+.hud-details dt { font-size: 11.5px; }
+.hud-details dd { font-size: 12px; text-align: left; }
+.flight-progress { position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+#flight-bar { height: 100%; width: 0; background: var(--amber); box-shadow: 0 0 8px var(--amber); }
 
 #toast {
   position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--console-h, 170px) + 30px);
@@ -654,6 +690,9 @@ body.poster-open #dock, body.poster-open .show-ui { visibility: hidden; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------------------------------------------------------------- small screens */
+@media (max-width: 1100px) {
+  .hud { top: calc(env(safe-area-inset-top, 0px) + 60px); }
+}
 @media (max-width: 900px) {
   .console-row { grid-template-columns: 1fr 1fr; }
   .console-row .field:nth-child(3) { grid-column: 1; }
@@ -687,10 +726,7 @@ body.poster-open #dock, body.poster-open .show-ui { visibility: hidden; }
   .trip { font-size: 12px; }
   .trip .extra { display: none; }
   #toast { bottom: calc(env(safe-area-inset-bottom, 0px) + var(--console-h, 170px) + 112px); border-radius: 12px; width: max-content; font-size: 12.5px; }
-  .hud { top: calc(env(safe-area-inset-top, 0px) + 124px); padding: 10px 12px; gap: 7px; }
-  .flight-title b { font-size: 16px; }
-  .flight-grid { gap: 6px 12px; }
-  .flight-grid b { font-size: 12.5px; }
+  .hud { top: calc(env(safe-area-inset-top, 0px) + 124px); min-width: 0; }
   .help-grid > div { grid-template-columns: 1fr; gap: 2px; }
   #cockpit .reticle { width: 90px; height: 90px; }
   .poster-modal { padding: 0; }
@@ -704,5 +740,5 @@ body.poster-open #dock, body.poster-open .show-ui { visibility: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .brand-mark.big { animation: none; }
-  #toast, #cockpit, #loader, .show-ui, .dock, .tog-group, .switch, .switch::after { transition: none; animation: none; }
+  #toast, #cockpit, #loader, .show-ui, .dock, .tog-group, .switch, .switch::after, .hud-dot { transition: none; animation: none; }
 }

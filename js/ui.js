@@ -16,7 +16,7 @@ const PARENT_LABEL = { earth: 'Earth', mars: 'Mars', jupiter: 'Jupiter', saturn:
 export class UI {
   constructor(app) {
     this.app = app;
-    this.toggles = { orbits: true, labels: true, deepsky: true, constellations: false, starnames: false, curvature: false, cockpit: true };
+    this.toggles = { orbits: true, labels: true, deepsky: true, constellations: false, starnames: false, curvature: false, cockpit: true, info: true, console: true };
     this.labelEls = new Map();
     this.featureEls = [];
     this.skyEls = { const: [], names: [] };
@@ -88,17 +88,34 @@ export class UI {
     });
     $('btn-hide-ui').addEventListener('click', () => this.setChromeHidden(true));
     $('btn-show-ui').addEventListener('click', () => this.setChromeHidden(false));
+    // In clear view the dock icons peek at a panel; otherwise they switch the panel itself on or off.
+    const panelShown = (which) => (this.uiHidden ? this.peeking(which) : this.toggles[which]);
+    const showPanel = (which, on) => (this.uiHidden ? this.setPeek(which, on) : this.setToggle(which, on));
     $('dock-info').addEventListener('click', () => {
-      const open = !this.peeking('info');
+      const open = !panelShown('info');
       // details describe whatever the dock is showing: the flight target, the destination, or here
       if (open && this.dockBody && this.dockBody !== this.inspect) {
         this.showInfo(this.dockBody, this.dockBody === this.app.state.focus ? 'Current location' : 'Destination');
       }
-      this.setPeek('info', open);
+      showPanel('info', open);
     });
-    $('dock-console').addEventListener('click', () => this.setPeek('console', !this.peeking('console')));
+    $('dock-console').addEventListener('click', () => showPanel('console', !panelShown('console')));
+    // A panel's × closes it, which is the same as switching it off under View (or ends a peek in clear view).
+    for (const b of document.querySelectorAll('[data-close]')) {
+      b.addEventListener('click', () => {
+        const which = b.dataset.close;
+        if (this.uiHidden && this.peeking(which)) this.setPeek(which, false);
+        else this.setToggle(which, false);
+      });
+    }
     $('dock-go').addEventListener('click', () => this.app.engage());
     $('dock-abort').addEventListener('click', () => this.app.abort());
+    // The flight readout is one quiet line; tapping it shows the ship clock and exact figures.
+    $('flight-more').addEventListener('click', () => {
+      const open = $('flight-details').hidden;
+      $('flight-details').hidden = !open;
+      $('flight-more').setAttribute('aria-expanded', String(open));
+    });
     // Poster, help and full screen sit in the top row on wide screens and inside the View menu on phones.
     const actions = {
       poster: () => this.app.openPoster?.(),
@@ -198,6 +215,14 @@ export class UI {
     const count = Object.entries(this.toggles).filter(([k, v]) => v && document.querySelector(`.tog[data-toggle="${k}"]`)).length;
     $('view-count').textContent = count;
     if (key === 'orbits') this.app.system.showOrbits = on;
+    if (key === 'info' || key === 'console') {
+      document.body.classList.toggle(`no-${key}`, !on);
+      if (key === 'info' && on) {
+        $('info').classList.remove('collapsed');
+        $('info-collapse').setAttribute('aria-expanded', 'true');
+      }
+      this.syncDock();
+    }
     if (key === 'curvature') {
       this.app.spacetime.setEnabled(on);
       $('info-gr').hidden = !on;
@@ -225,9 +250,7 @@ export class UI {
     this.closePeeks();
     document.body.classList.toggle('ui-hidden', on);
     $('btn-show-ui').hidden = !on;
-    $('dock').hidden = !on;
-    this.updateDock(true);
-    this.panelRects = null;
+    this.syncDock();
     const focused = document.activeElement;
     if (on && focused && focused !== document.body) $('btn-show-ui').focus();
     if (!on && focused === $('btn-show-ui')) $('btn-hide-ui').focus();
@@ -246,9 +269,18 @@ export class UI {
       $('info').classList.remove('collapsed');
       $('info-collapse').setAttribute('aria-expanded', 'true');
     }
-    $('dock-info').setAttribute('aria-pressed', String(this.peeking('info')));
-    $('dock-console').setAttribute('aria-pressed', String(this.peeking('console')));
+    this.syncDock();
+  }
+
+  // The dock shows in clear view, and whenever the flight console is closed so Engage stays one tap away.
+  syncDock() {
+    if (!$('dock')) return;
+    $('dock').hidden = !(this.uiHidden || !this.toggles.console);
+    const shown = (w) => (this.uiHidden ? this.peeking(w) : this.toggles[w]);
+    $('dock-info').setAttribute('aria-pressed', String(shown('info')));
+    $('dock-console').setAttribute('aria-pressed', String(shown('console')));
     this.panelRects = null;
+    this.updateDock(true);
   }
 
   closePeeks() {
@@ -259,7 +291,7 @@ export class UI {
 
   // Where you're headed and how long it takes, or how the flight is going.
   updateDock(force) {
-    if (!this.uiHidden) return;
+    if ($('dock').hidden || !this.app.state) return;
     const now = performance.now();
     if (!force && now - this.lastDock < 200) return;
     this.lastDock = now;
@@ -477,10 +509,13 @@ export class UI {
     $('flight-elapsed').textContent = fmtDuration(tr.shipElapsed);
     $('flight-remaining').textContent = fmtDuration(tr.shipRemaining);
     $('flight-dist').textContent = fmtDistance(tr.remainingKm);
-    $('flight-vel').textContent = fmtSpeed(tr.speed);
+    $('flight-dist-short').textContent = fmtCompact(tr.remainingKm);
+    const vel = fmtSpeed(tr.speed);
+    $('flight-vel').textContent = vel;
+    $('flight-vel-short').textContent = vel.includes('·') ? vel.split('·')[1].trim() : vel; // "1.00 c" beats "299,792 km/s"
     $('flight-compress').textContent = tr.warp === 0
-      ? `Time-lapse ${fmtFactor(Math.max(1, tr.realDuration / tr.animDuration))}`
-      : tr.warp === 1 ? 'Real time' : `Time-lapse ×${tr.warp.toLocaleString('en-US')}`;
+      ? `time-lapse ${fmtFactor(Math.max(1, tr.realDuration / tr.animDuration))}`
+      : tr.warp === 1 ? 'real time' : `time-lapse ×${tr.warp.toLocaleString('en-US')}`;
   }
 
   // Shown in the browser's own time zone and locale; the tooltip gives the UTC equivalent.
@@ -551,7 +586,7 @@ export class UI {
     if (!this.panelRects || now - this.panelRectsAt > 300) {
       this.panelRectsAt = now;
       const panels = this.uiHidden ? ['#btn-show-ui', '#dock', '#info', '#console', '#flight']
-        : ['#zoom', '#info', '#console', '.clock', '.brand', '.toggles', '#tog-group', '#flight'];
+        : ['#zoom', '#info', '#console', '.clock', '.brand', '.toggles', '#tog-group', '#flight', '#dock'];
       this.panelRects = panels
         .map((sel) => document.querySelector(sel))
         .filter((n) => n && !n.hidden && n.getClientRects().length > 0 && getComputedStyle(n).visibility !== 'hidden')
