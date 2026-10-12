@@ -7,6 +7,7 @@ import { CameraRig } from './controls.js';
 import { Travel, arrivalDistance, setViewScale } from './travel.js';
 import { TextureStore } from './textures.js';
 import { UI } from './ui.js';
+import { PosterStudio } from './poster.js';
 import { SPEEDS, TRAVEL_MODES, TIME_RATES } from './data.js';
 import { jdFromMs, DEG } from './ephemeris.js';
 import { fmtDuration } from './format.js';
@@ -199,6 +200,7 @@ const app = {
 };
 
 const ui = new UI(app);
+app.ui = ui;
 ui.ensureBodyLabels(system.bodies);
 ui.syncSelects();
 
@@ -261,6 +263,7 @@ rig.onDoubleTap = (x, y) => {
 };
 
 window.addEventListener('keydown', (e) => {
+  if (poster.isOpen) { if (e.key === 'Escape') poster.close(); return; }
   if (e.target.closest && e.target.closest('input, select, textarea')) return;
   if (e.key === 'Escape') {
     if (!document.getElementById('help').hidden) ui.showHelp(false);
@@ -272,7 +275,9 @@ window.addEventListener('keydown', (e) => {
     app.setTimeRate(state.timeRate.rate === 0 ? state.lastRate.id : 'pause');
   } else if (e.key === 'r' || e.key === 'R') rig.resetLook();
   else if (e.key === 'g' || e.key === 'G') ui.setToggle('curvature', !ui.toggles.curvature);
+  else if (e.key === 'b' || e.key === 'B') ui.setToggle('deepsky', !ui.toggles.deepsky);
   else if (e.key === 'h' || e.key === 'H') ui.setChromeHidden(!ui.uiHidden);
+  else if (e.key === 'p' || e.key === 'P') poster.open();
   else if (e.key === 'Enter' && e.target === document.body) app.engage();
 });
 
@@ -291,6 +296,87 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+// ---------------------------------------------------------------- body snapshots (for posters)
+// Renders single bodies with the real materials and lighting for a given date, one at a time, into
+// the corner of the WebGL canvas, and copies each into a 2D canvas before the frame ends. Black space
+// is keyed out to transparency. The next animation frame restores the live view.
+const _snapM = new THREE.Matrix4();
+const _snapUp = new THREE.Vector3(0, 0, -1); // ecliptic +y: "up" on a top-down chart
+app.snapshot = (jd, requests) => {
+  system.update(jd);
+  const hidden = [system.markers, system.glare, spacetime.mesh, ...system.orbitLines.map((o) => o.line)];
+  const was = hidden.map((o) => o && o.visible);
+  hidden.forEach((o) => { if (o) o.visible = false; });
+  const groupVis = system.bodies.map((b) => b.group.visible);
+  const pr = renderer.getPixelRatio();
+  const maxPx = Math.min(1024, canvas.width, canvas.height);
+  const half = 9 * DEG;
+  camera.fov = half * 2 / DEG;
+  camera.aspect = 1;
+  camera.updateProjectionMatrix();
+  renderer.setScissorTest(true);
+  const out = {};
+  const eye = new THREE.Vector3(), dir = new THREE.Vector3();
+  for (const req of requests) {
+    const b = system.byId[req.id];
+    const size = Math.max(16, Math.min(maxPx, Math.round(req.px)));
+    for (const o of system.bodies) o.group.visible = o === b;
+    const atmo = b.data.atmosphere ? 1 + b.data.atmosphere.thickness : 1;
+    const extent = (b.data.rings === 'saturn' ? b.ringOuter : b.maxRadius * atmo) * 1.03;
+    let dist;
+    if (req.from) {
+      // as seen from another body's centre, e.g. the Moon's phase from Earth
+      eye.copy(system.byId[req.from].pos);
+      dist = eye.distanceTo(b.pos);
+      camera.fov = (2 * Math.asin(Math.min(1, extent / dist))) / DEG;
+      camera.updateProjectionMatrix();
+    } else {
+      // from above the ecliptic, leaning a little sunward so more of the day side shows
+      dir.set(0, 1, 0);
+      if (b.kind !== 'star') dir.add(system.byId.sun.pos.clone().sub(b.pos).setY(0).normalize().multiplyScalar(0.5));
+      dir.normalize();
+      dist = extent / Math.sin(half);
+      eye.copy(b.pos).addScaledVector(dir, dist);
+      if (camera.fov !== half * 2 / DEG) { camera.fov = half * 2 / DEG; camera.updateProjectionMatrix(); }
+    }
+    _snapM.lookAt(eye, b.pos, req.from ? new THREE.Vector3(0, 1, 0) : _snapUp);
+    camera.position.set(0, 0, 0);
+    camera.quaternion.setFromRotationMatrix(_snapM);
+    camera.updateMatrixWorld();
+    system.updateRender(eye, camera, new THREE.Vector2(size, size), b, null);
+    hidden.forEach((o) => { if (o) o.visible = false; }); // updateRender turns the glare and orbits back on
+    renderer.setViewport(0, 0, size / pr, size / pr);
+    renderer.setScissor(0, 0, size / pr, size / pr);
+    renderer.setClearColor(0x000000, 1);
+    renderer.clear();
+    renderer.render(scene, camera);
+
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(canvas, 0, canvas.height - size, size, size, 0, 0, size, size);
+    const img = ctx.getImageData(0, 0, size, size), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const m = Math.max(d[i], d[i + 1], d[i + 2]);
+      const a = Math.min(1, m / 38);
+      if (a < 1) {
+        if (a === 0) { d[i + 3] = 0; continue; }
+        d[i] = Math.min(255, d[i] / a); d[i + 1] = Math.min(255, d[i + 1] / a); d[i + 2] = Math.min(255, d[i + 2] / a);
+      }
+      d[i + 3] = Math.round(a * 255);
+    }
+    ctx.putImageData(img, 0, 0);
+    const angR = Math.asin(Math.min(1, b.maxRadius / dist));
+    const halfFov = (camera.fov * DEG) / 2;
+    out[req.id] = { canvas: c, radiusPx: (size / 2) * (Math.tan(angR) / Math.tan(halfFov)) };
+  }
+  renderer.setScissorTest(false);
+  system.bodies.forEach((b, i) => { b.group.visible = groupVis[i]; });
+  hidden.forEach((o, i) => { if (o) o.visible = was[i]; });
+  resize();
+  return out;
+};
+
 // ---------------------------------------------------------------- start position: Earth, three-quarter lit
 system.update(jdFromMs(state.simMs));
 {
@@ -305,6 +391,10 @@ system.update(jdFromMs(state.simMs));
 system.buildOrbitLines(jdFromMs(state.simMs));
 ui.showInfo(state.focus, 'Current location');
 
+// ---------------------------------------------------------------- poster studio
+const poster = new PosterStudio(app);
+document.getElementById('btn-poster').addEventListener('click', () => { ui.setMenu(false); poster.open(); });
+
 // ---------------------------------------------------------------- loading
 manager.onProgress = (url, loaded, total) => ui.setLoader(loaded / Math.max(total, 1));
 const jobs = [...system.initialTextureJobs(), sky.loadMilkyWay()];
@@ -313,6 +403,7 @@ Promise.allSettled(jobs).then((results) => {
   ui.hideLoader();
   if (failed) ui.toast(`${failed} map${failed > 1 ? 's' : ''} failed to load; those worlds use generated surfaces.`, 5000);
   else ui.toast('Pick a destination and speed below, then press <b>Engage</b>.', 4500);
+  if (location.hash === '#poster') poster.open(); // shareable link straight to the studio
   sky.upgradeMilkyWay().catch(() => {});
   system.upgradeTextures(state.focus);
 });
@@ -370,7 +461,7 @@ function frame(now) {
 
   sky.sync(camera);
   renderer.clear();
-  renderer.render(sky.scene, sky.camera);
+  if (sky.scene.visible) renderer.render(sky.scene, sky.camera);
   renderer.clearDepth();
   renderer.render(scene, camera);
   if (streaks.visible) renderer.render(fxScene, camera);

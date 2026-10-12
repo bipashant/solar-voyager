@@ -7,7 +7,7 @@ import * as S from './shaders.js';
 const R_SKY = 100;
 const MAX_LENS = 6;
 
-function bvToColor(bv) {
+export function bvToColor(bv) {
   const stops = [
     [-0.4, [0.61, 0.70, 1.0]], [0.0, [0.79, 0.85, 1.0]], [0.3, [0.97, 0.97, 1.0]], [0.6, [1.0, 0.96, 0.91]],
     [0.9, [1.0, 0.89, 0.77]], [1.2, [1.0, 0.82, 0.63]], [1.5, [1.0, 0.75, 0.48]], [2.0, [1.0, 0.6, 0.3]],
@@ -130,6 +130,9 @@ export class Sky {
   }
 
   setConstellations(on) { this.lines.visible = on; }
+
+  // The whole background: Milky Way, stars and constellation figures.
+  setVisible(on) { this.scene.visible = on; }
 
   sync(mainCamera) {
     this.camera.quaternion.copy(mainCamera.quaternion);

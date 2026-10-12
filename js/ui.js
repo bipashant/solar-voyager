@@ -16,7 +16,7 @@ const PARENT_LABEL = { earth: 'Earth', mars: 'Mars', jupiter: 'Jupiter', saturn:
 export class UI {
   constructor(app) {
     this.app = app;
-    this.toggles = { orbits: true, labels: true, constellations: false, starnames: false, curvature: false, cockpit: true };
+    this.toggles = { orbits: true, labels: true, deepsky: true, constellations: false, starnames: false, curvature: false, cockpit: true };
     this.labelEls = new Map();
     this.featureEls = [];
     this.skyEls = { const: [], names: [] };
@@ -176,7 +176,18 @@ export class UI {
     const b = document.querySelector(`.tog[data-toggle="${key}"]`);
     if (b) b.setAttribute('aria-pressed', String(on));
     if (key === 'cockpit') $('cockpit').classList.toggle('off', !on);
-    if (key === 'constellations') this.app.sky.setConstellations(on);
+    if (key === 'deepsky' || key === 'constellations') {
+      // constellation figures and star names belong to the star field, so they rest while it is hidden
+      const sky = this.toggles.deepsky;
+      this.app.sky.setVisible(sky);
+      this.app.sky.setConstellations(sky && this.toggles.constellations);
+      for (const k of ['constellations', 'starnames']) {
+        const t = document.querySelector(`.tog[data-toggle="${k}"]`);
+        if (!t) continue;
+        t.classList.toggle('resting', !sky);
+        t.title = sky ? '' : 'Turn on Deep sky to see these';
+      }
+    }
     if (key === 'orbits') this.app.system.showOrbits = on;
     if (key === 'curvature') {
       this.app.spacetime.setEnabled(on);
@@ -643,8 +654,8 @@ export class UI {
         } else it.e.style.display = 'none';
       }
     };
-    place(this.skyEls.const, this.toggles.constellations, -30, -6);
-    place(this.skyEls.names, this.toggles.starnames, 7, -5);
+    place(this.skyEls.const, this.toggles.deepsky && this.toggles.constellations, -30, -6);
+    place(this.skyEls.names, this.toggles.deepsky && this.toggles.starnames, 7, -5);
   }
 }
 

@@ -17,6 +17,7 @@ There is no build step, framework or backend. You need a static file server and 
 - **A real sky.** A Milky Way panorama aligned to galactic coordinates, 197 bright stars at catalogue positions and colours, 25 constellation figures, and star names.
 - **Speed you can feel.** Flights at a choice of ten speeds. A ship clock shows the true trip time: 1.3 s from Earth to the Moon at light speed, or 413 years to Neptune at the speed of sound.
 - **Eclipses and shadows.** Moons cast shadows on planets, planets eclipse their moons, Saturn's rings shadow the planet, and the planet shadows its rings.
+- **Posters of any date.** A birthday, a wedding, the day you met: the poster studio draws every planet where it really was, rendered by the 3D engine and lit by the Sun, plus that night's Moon phase, ready to print at 18 × 24 in. An optional deep-sky background puts the real Milky Way, bright stars and nebulae behind it, projected so the ecliptic lands on the poster's constellation ring.
 - **Spacetime curvature.** One toggle shows general relativity at work: a grid that sinks into each world's gravity well, shaped by its real mass, and starlight bending around planets into Einstein rings.
 
 ---
@@ -97,7 +98,9 @@ In VS Code, the *Live Server* extension also works.
 | Arrow keys / A, D | Orbit from the keyboard |
 | W / S, + / − keys | Zoom from the keyboard |
 | R | Re-centre the view after looking around |
+| B, or the **Deep sky** button | Hide the Milky Way and background stars to see only the Sun, planets and moons against black space |
 | G | Show or hide spacetime curvature (same as the **Curvature** button) |
+| P, or the **Poster** button | Open the poster studio: the solar system on any date from 1800 to 2050, as a print-ready PNG (link straight to it with `#poster`) |
 | H, or the eye button (top right) | Hide every control for a clear, full-screen view; press again, or tap the small eye, to bring them back |
 | Dock (bottom, while controls are hidden) | Shows where you're headed and the trip time. Its icons open the details, open the flight controls (the flight readout while flying), and Engage or abort in one tap. On a phone, tap empty space to put panels away |
 | Layers button (phones) | Opens the view options: orbits, labels, constellations, star names, curvature, cockpit, help and full screen |
@@ -674,6 +677,7 @@ js/sky.js             Milky Way sphere, star points (and their lensed inner imag
 js/stars.js           Bright-star catalogue and constellation figures
 js/controls.js        CameraRig: orbit, log-altitude zoom, free look, tap/double-tap, zoom API
 js/travel.js          Flight planning, cinematic log profile, real-time mode
+js/poster.js          Poster studio: date to planet directions, 2D poster layout, print-size PNG export
 js/spacetime.js       Masses, gravity-well sheet, free-falling frame, gravitational lensing inputs
 js/ui.js              Selects, info panel, flight display, zoom control, labels and decluttering
 js/format.js          Distance, duration, speed and time-lapse formatting

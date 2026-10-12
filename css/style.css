@@ -273,6 +273,7 @@ select option, select optgroup { background: #0d1420; color: var(--ink); }
 .tog[aria-pressed="true"] { color: var(--ink); border-color: var(--line-strong); }
 .tog[aria-pressed="true"]::before { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 6px var(--amber); }
 .tog:hover { color: var(--amber); }
+.tog.resting { opacity: 0.45; }
 
 /* ---------------------------------------------------------------- hide every control */
 .topbar, .toggles, #info, #console, .zoom, .hud { transition: opacity 0.25s ease, visibility 0.25s; }
@@ -486,6 +487,75 @@ dd { margin: 0; text-align: right; font: 500 12.5px/1.4 var(--font-data); font-v
 .help-credit { margin: 0; font-size: 11.5px; color: var(--ink-faint); line-height: 1.5; }
 .modal-card .btn-engage { align-self: flex-end; }
 
+/* ---------------------------------------------------------------- poster studio */
+.poster-btn::before { display: none; }
+.poster-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+.poster-btn { color: var(--ink); }
+.poster-modal { padding: 20px; }
+.poster-card {
+  width: min(1180px, 100%); height: min(860px, 100%);
+  display: grid; grid-template-columns: minmax(0, 1fr) 360px;
+  background: #0a0f1a;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+.ps-preview {
+  min-width: 0; min-height: 0;
+  display: grid; place-items: center;
+  padding: 24px;
+  background: radial-gradient(ellipse at center, rgba(147, 214, 255, 0.05), transparent 70%), #04060c;
+}
+#ps-canvas { display: block; border-radius: 3px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.ps-form {
+  display: flex; flex-direction: column; gap: 13px;
+  padding: 20px 20px 18px;
+  overflow-y: auto; overscroll-behavior: contain;
+  border-left: 1px solid var(--line);
+}
+.ps-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ps-head h2 { margin: 4px 0 0; font: 700 21px/1.1 var(--font-display); letter-spacing: 0.06em; }
+.ps-lede { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink-dim); }
+.ps-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.ps-field > span { font: 500 10px/1 var(--font-data); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+.ps-field em { font-style: normal; letter-spacing: 0.04em; text-transform: none; color: var(--ink-faint); opacity: 0.8; }
+.ps-field input {
+  width: 100%; min-width: 0;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 8px 10px;
+  font: 500 13.5px/1.2 var(--font-body);
+  color: var(--ink);
+  color-scheme: dark;
+}
+.ps-field input:focus { border-color: rgba(255, 181, 71, 0.6); outline: none; }
+.ps-row { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; }
+.ps-note { margin: -4px 0 0; font-size: 12px; color: var(--danger); }
+.ps-themes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ps-theme {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong); border-radius: 8px;
+  background: transparent; font: 500 13px var(--font-body); color: var(--ink-dim);
+}
+.ps-theme[aria-checked="true"] { color: var(--ink); border-color: var(--amber); background: var(--amber-soft); }
+.ps-theme .sw { width: 18px; height: 18px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2); }
+.ps-theme .sw.midnight { background: radial-gradient(circle at 50% 45%, #ffcf6e 0 2px, transparent 3px), radial-gradient(circle, #0d1730, #03050b); }
+.ps-theme .sw.ivory { background: radial-gradient(circle at 50% 45%, #c8902c 0 2px, transparent 3px), #f3ebdb; }
+.ps-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-dim); }
+.ps-check input { accent-color: var(--amber); width: 15px; height: 15px; }
+.ps-check-hint { align-items: flex-start; }
+.ps-check-hint input { margin-top: 2px; flex: none; }
+.ps-check-hint span { display: flex; flex-direction: column; gap: 2px; }
+.ps-check-hint small { font-size: 11.5px; line-height: 1.4; color: var(--ink-faint); }
+.ps-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.ps-actions .btn-engage { width: 100%; height: 42px; }
+.ps-actions .btn-ghost { width: 100%; padding: 10px; }
+.ps-status { margin: 0; min-height: 1.4em; font-size: 12px; color: var(--ice); overflow-wrap: anywhere; }
+body.poster-open #dock, body.poster-open .show-ui { visibility: hidden; }
+
 #loader {
   position: fixed; inset: 0; z-index: 20;
   display: grid; place-items: center;
@@ -556,6 +626,11 @@ dd { margin: 0; text-align: right; font: 500 12.5px/1.4 var(--font-data); font-v
   .flight-grid b { font-size: 12.5px; }
   .help-grid > div { grid-template-columns: 1fr; gap: 2px; }
   #cockpit .reticle { width: 90px; height: 90px; }
+  .poster-modal { padding: 0; }
+  .poster-card { height: 100%; border-radius: 0; border: 0; grid-template-columns: 1fr; grid-template-rows: minmax(0, 46%) minmax(0, 1fr); }
+  .ps-preview { padding: 14px; }
+  .ps-form { border-left: 0; border-top: 1px solid var(--line); padding: 14px 16px calc(env(safe-area-inset-bottom, 0px) + 16px); }
+  .ps-lede { display: none; }
   .zoom { left: auto; right: var(--gutter); top: 40%; width: 52px; padding: 6px 0 7px; }
   .zoom-track { display: none; }
   .zoom-btn { width: 40px; height: 40px; }

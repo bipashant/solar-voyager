@@ -7,7 +7,7 @@
 <meta name="description" content="Fly a spaceship through a true-scale, real-time model of the Solar System.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Cormorant+Garamond:ital,wght@1,500&family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">
 { "imports": {
@@ -93,11 +93,16 @@
   <div class="tog-group" id="tog-group">
     <button class="tog" type="button" data-toggle="orbits" aria-pressed="true">Orbits</button>
     <button class="tog" type="button" data-toggle="labels" aria-pressed="true">Labels</button>
+    <button class="tog" type="button" data-toggle="deepsky" aria-pressed="true" title="Show the Milky Way and background stars (B)">Deep sky</button>
     <button class="tog" type="button" data-toggle="constellations" aria-pressed="false">Constellations</button>
     <button class="tog" type="button" data-toggle="starnames" aria-pressed="false">Star names</button>
     <button class="tog" type="button" data-toggle="curvature" aria-pressed="false" title="Show spacetime curvature: gravity wells and bent starlight (G)">Curvature</button>
     <button class="tog" type="button" data-toggle="cockpit" aria-pressed="true">Cockpit</button>
     <div class="tog-extra">
+      <button class="tog poster-btn" type="button" id="btn-poster" title="Make a poster of the solar system on any date">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="2.5" width="12" height="15" rx="1.2"/><circle cx="10" cy="9" r="1.6"/><circle cx="10" cy="9" r="4.2"/><path d="M7 14.5h6"/></svg>
+        <span>Poster</span>
+      </button>
       <button class="icon-btn" type="button" id="btn-help" aria-label="Controls and help" title="Controls and help">?</button>
       <button class="icon-btn" type="button" id="btn-full" aria-label="Toggle full screen" title="Full screen">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5"/></svg>
@@ -208,6 +213,58 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
+<div id="poster" class="modal poster-modal" hidden>
+  <div class="poster-card" role="dialog" aria-modal="true" aria-labelledby="ps-title">
+    <div class="ps-preview"><canvas id="ps-canvas" aria-label="Poster preview"></canvas></div>
+    <form class="ps-form" onsubmit="return false">
+      <div class="ps-head">
+        <div>
+          <div class="eyebrow">Poster studio</div>
+          <h2 id="ps-title">Your sky, any day</h2>
+        </div>
+        <button id="ps-close" class="icon-btn small" type="button" aria-label="Close poster studio">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/></svg>
+        </button>
+      </div>
+      <p class="ps-lede">Every planet where it really was, the Moon's phase that night, and a few facts about the day. Ready to print or share.</p>
+      <label class="ps-field"><span>Headline</span>
+        <input id="ps-headline" type="text" maxlength="60" value="The solar system on the day you were born" list="ps-headlines">
+        <datalist id="ps-headlines">
+          <option value="The solar system on the day you were born"></option>
+          <option value="The sky the day we met"></option>
+          <option value="The solar system on our wedding day"></option>
+          <option value="Where the planets were when you arrived"></option>
+          <option value="A day worth remembering"></option>
+        </datalist>
+      </label>
+      <label class="ps-field"><span>Name</span><input id="ps-name" type="text" maxlength="40" placeholder="Ava Rose" autocomplete="off"></label>
+      <div class="ps-row">
+        <label class="ps-field"><span>Date</span><input id="ps-date" type="date" min="1800-01-01" max="2050-12-31" required></label>
+        <label class="ps-field"><span>Time <em>optional</em></span><input id="ps-time" type="time"></label>
+      </div>
+      <p class="ps-note" id="ps-date-note" hidden>Pick a date between 1800 and 2050, the range the orbital elements cover.</p>
+      <label class="ps-field"><span>Message <em>optional</em></span><input id="ps-message" type="text" maxlength="80" placeholder="Welcome to the universe"></label>
+      <div class="ps-field">
+        <span>Style</span>
+        <div class="ps-themes" role="radiogroup" aria-label="Poster style">
+          <button type="button" class="ps-theme" data-theme="midnight" role="radio" aria-checked="true"><i class="sw midnight"></i>Midnight</button>
+          <button type="button" class="ps-theme" data-theme="ivory" role="radio" aria-checked="false"><i class="sw ivory"></i>Ivory</button>
+        </div>
+      </div>
+      <label class="ps-check"><input id="ps-pluto" type="checkbox" checked> Include Pluto</label>
+      <label class="ps-check ps-check-hint"><input id="ps-deep" type="checkbox">
+        <span>Deep sky background<small>The real Milky Way, bright stars and nebulae beyond the solar system</small></span>
+      </label>
+      <label class="ps-field"><span>Size</span><select id="ps-size"></select></label>
+      <div class="ps-actions">
+        <button id="ps-download" class="btn-engage" type="button">Download PNG</button>
+        <button id="ps-3d" class="btn-ghost" type="button">See this date in 3D</button>
+      </div>
+      <p class="ps-status" id="ps-status" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+</div>
+
 <div id="help" class="modal" hidden>
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="help-title">
     <h2 id="help-title">Flight manual</h2>
@@ -220,6 +277,8 @@
       <div><span class="keys"><kbd>Double-tap</kbd></span><span class="what">Fly there straight away</span></div>
       <div><span class="keys"><kbd>Arrows</kbd> <kbd>W</kbd> <kbd>S</kbd></span><span class="what">Orbit and zoom from the keyboard</span></div>
       <div><span class="keys"><kbd>R</kbd></span><span class="what">Re-centre the view</span></div>
+      <div><span class="keys"><kbd>P</kbd> or the Poster button</span><span class="what">Make a printable poster of the solar system on any date, such as a birthday</span></div>
+      <div><span class="keys"><kbd>B</kbd></span><span class="what">Show or hide the deep sky (Milky Way and stars), leaving only the Sun, planets and moons</span></div>
       <div><span class="keys"><kbd>G</kbd></span><span class="what">Show spacetime curvature: gravity wells and bent starlight</span></div>
       <div><span class="keys"><kbd>H</kbd> or the eye button</span><span class="what">Hide every control for a clear view. The dock at the bottom keeps details, flight controls and Engage one tap away</span></div>
       <div><span class="keys"><kbd>Space</kbd></span><span class="what">Pause or resume time</span></div>
