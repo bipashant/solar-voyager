@@ -158,7 +158,15 @@ export class Spacetime {
   update(dt, camPos, body) {
     const on = this.enabled && !!body;
     this.mesh.visible = on;
-    if (!on) return;
+    if (!on) {
+      // far from the planets (out among the stars) there is nothing to draw and no starlight to bend
+      if (this.enabled && this.frame) {
+        this.sky.lens.uLensN.value = 0;
+        this.frame = null;
+        this.logE = this.logDmax = this.logX = null;
+      }
+      return;
+    }
     const u = this.uniforms;
 
     const f = this.frameFor(body, camPos);

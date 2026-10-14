@@ -1089,3 +1089,68 @@ void main(){
   gl_FragColor = vec4(vec3(0.75, 0.86, 1.0) * vFade * uOpacity, 1.0);
 }
 `;
+
+// ---------------------------------------------------------------- deep-sky objects
+// Soft particles sized in the object's own units, so a nebula keeps its true angular size and surface
+// brightness from any distance. Sprites smaller than uMinPx keep their total light (dimmer, not
+// smaller); sprites that would fill the view fade out as the camera flies through them. STAR points
+// stop growing at uCapPx so stars stay sharp up close; FIXED points are a constant size (the Sun seen
+// from deep space).
+export const DSO_VERT = /* glsl */`
+attribute vec3 aColor;
+attribute float aSize;
+attribute float aAlpha;
+uniform float uScale;
+uniform float uPx;
+uniform float uGain;
+uniform float uMinPx;
+uniform float uMaxPx;
+uniform float uCapPx;
+varying vec3 vColor;
+void main(){
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  float d = -mv.z;
+  if (d <= 0.0) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  float a = aAlpha * uGain;
+  #if defined(FIXED)
+    float s = aSize;
+  #else
+    float px = aSize * uScale * uPx / d;
+    #if defined(STAR)
+      px *= 2.5;
+      // brighter stars get a bigger glint
+      float s = clamp(px, uMinPx, uCapPx * (0.6 + 0.5 * aAlpha));
+      a *= min(1.0, (px * px) / (s * s));
+    #else
+      float s = max(px, uMinPx);
+      a *= (px * px) / (s * s);
+      a *= 1.0 - smoothstep(uMaxPx * 0.3, uMaxPx, s);
+      s = min(s, uMaxPx);
+    #endif
+  #endif
+  if (a < 2e-4) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  vColor = aColor * a;
+  gl_PointSize = s;
+  gl_Position = projectionMatrix * mv;
+}
+`;
+
+export const DSO_FRAG = /* glsl */`
+varying vec3 vColor;
+void main(){
+  vec2 c = gl_PointCoord * 2.0 - 1.0;
+  float r2 = dot(c, c);
+  if (r2 > 1.0) discard;
+  #if defined(STAR)
+    float g = exp(-r2 * 7.0) + 0.15 * exp(-r2 * 1.8);
+  #else
+    float g = exp(-r2 * 4.0) - 0.0183;
+  #endif
+  #if defined(DUST)
+    // multiplied into what is behind: dst * (1 - src)
+    gl_FragColor = vec4(min(vColor * g, vec3(0.97)), 1.0);
+  #else
+    gl_FragColor = vec4(vColor * g, 1.0);
+  #endif
+}
+`;

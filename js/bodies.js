@@ -82,6 +82,7 @@ export class SolarSystem {
     this.bodies = [];
     this.byId = {};
     this.orbitLines = [];
+    this.glareFade = 1; // the Sun's glare dims as the ship leaves the Solar System
     this.tmp = new THREE.Vector3();
     this._moonGeo = new THREE.Vector3();
 
@@ -570,7 +571,7 @@ export class SolarSystem {
       gu.uCenterV.value.copy(sun.viewPos);
       gu.uViewport.value.set(viewport.x, viewport.y);
       gu.uFovScale.value = fovScale;
-      gu.uIntensity.value = this.sunVisibility(camPos);
+      gu.uIntensity.value = this.sunVisibility(camPos) * this.glareFade;
       this.glare.visible = sun.viewPos.z < 0 && gu.uIntensity.value > 0.001;
     }
 

@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { SolarSystem } from './bodies.js';
 import { Sky } from './sky.js';
+import { DeepSky } from './deepsky.js';
+import { LY_KM } from './deepsky-data.js';
 import { Spacetime } from './spacetime.js';
 import { CameraRig } from './controls.js';
 import { Travel, arrivalDistance, setViewScale } from './travel.js';
@@ -43,6 +45,7 @@ const textures = new TextureStore(renderer, manager);
 const system = new SolarSystem(scene, textures, shared);
 system.showOrbits = true;
 const sky = new Sky(textures);
+const deep = new DeepSky(renderer);
 const spacetime = new Spacetime(system, scene, sky);
 const rig = new CameraRig(canvas);
 const travel = new Travel();
@@ -86,12 +89,21 @@ const state = {
   mode: TRAVEL_MODES[0],
 };
 
+// Beyond about 2,000 AU the planets are lost in the Sun's glow, so the Solar System is not drawn at all
+// and the Sun becomes a single star in the deep-sky scene.
+const SOLAR_HIDE_KM = 3e11;
+const smooth = (a, b, x) => THREE.MathUtils.smoothstep(x, a, b);
+
 const app = {
-  state, system, sky, spacetime, travel, rig, camPos,
+  state, system, sky, spacetime, travel, rig, camPos, deepSky: deep,
+  solarVisible: true,
+
+  // A body of the Solar System or a deep-sky object, by id.
+  lookup(id) { return system.byId[id] || deep.byId[id]; },
 
   systemBody() {
     const b = travel.active ? travel.target : state.focus;
-    if (!b) return null;
+    if (!b || b.deep) return null;
     if (b.kind === 'moon') return b.parent;
     if (b.kind === 'star') return null;
     return b;
@@ -99,8 +111,9 @@ const app = {
 
   setDestination(id, opts = {}) {
     if (travel.active) return;
-    const b = system.byId[id];
+    const b = app.lookup(id);
     if (!b) return;
+    if (b.deep) deep.build(b);
     state.destination = b;
     ui.syncSelects();
     ui.showInfo(b, b === state.focus ? 'Current location' : 'Destination');
@@ -111,6 +124,8 @@ const app = {
   },
 
   tripDistance(b) {
+    // galaxies and nebulae park at a chosen viewpoint (for the Milky Way, far outside it)
+    if (b.approach) return b.pos.clone().addScaledVector(b.approach(camPos), arrivalDistance(b)).distanceTo(camPos);
     return Math.max(0, b.pos.distanceTo(camPos) - arrivalDistance(b));
   },
 
@@ -133,10 +148,13 @@ const app = {
     travel.abort();
     // Stay where we are, orbiting whichever body is nearest relative to its size.
     let best = state.focus, bestScore = Infinity;
-    for (const b of system.bodies) {
-      const s = b.pos.distanceTo(camPos) / Math.max(b.radius, 1) / (b.kind === 'moon' ? 1 : 3);
+    for (const b of [...system.bodies, ...deep.objects]) {
+      const d = b.pos.distanceTo(camPos);
+      if (b.deep && d < b.radius && b.kind === 'galaxy') continue; // not "near" a galaxy we are inside
+      const s = d / Math.max(b.radius, 1) / (b.kind === 'moon' || b.deep ? 1 : 3);
       if (s < bestScore) { bestScore = s; best = b; }
     }
+    if (best.deep) deep.build(best);
     arrive(best, true);
   },
 
@@ -160,6 +178,17 @@ const app = {
       ui.toast(`Fly to <b>${body.name}</b> first to see ${f.name}.`, 2600);
       return;
     }
+    if (body.deep) {
+      if (!f.p) return;
+      // orbit the feature itself, coming in from the side we are already looking from
+      const w = deep.worldOf(body, f.p);
+      rig.setPivot(w.clone().sub(body.pos));
+      const dir = camPos.clone().sub(w);
+      if (dir.lengthSq() < 1) dir.set(0, 0, 1);
+      rig.lookAtDirection(dir.normalize(), (f.view ?? 0.3) * body.radius);
+      ui.toast(`Looking at <b>${f.name}</b>. Press <b>R</b> to look at the whole of ${body.name} again.`, 3200);
+      return;
+    }
     const dir = new THREE.Vector3();
     if (f.ring) {
       const pole = new THREE.Vector3(0, 1, 0).applyQuaternion(body.quat);
@@ -180,8 +209,9 @@ const app = {
 
   // Debug helper: arrive at a body instantly (window.solarVoyager.jumpTo('saturn')).
   jumpTo(id) {
-    const b = system.byId[id];
+    const b = app.lookup(id);
     if (!b || travel.active) return;
+    if (b.deep) deep.build(b);
     travel.start({ fromPos: camPos, fromQuat: camQuat, origin: state.focus, target: b, sun: system.byId.sun, speed: state.speed.kms, warp: 0 });
     travel.elapsed = travel.animDuration;
     travel.update(0);
@@ -202,6 +232,7 @@ const app = {
 const ui = new UI(app);
 app.ui = ui;
 ui.ensureBodyLabels(system.bodies);
+ui.ensureDeepLabels(deep.objects);
 ui.syncSelects();
 
 function arrive(body, aborted = false, quiet = false) {
@@ -218,7 +249,7 @@ function arrive(body, aborted = false, quiet = false) {
   ui.showInfo(body, 'Current location');
   ui.buildFeatureLabels();
   ui.refreshTrip(true);
-  const vis = body.kind === 'star' ? 1 : system.sunVisibility(body.pos);
+  const vis = body.kind === 'star' || body.deep ? 1 : system.sunVisibility(body.pos);
   const shade = vis < 0.1 && system.eclipser
     ? ` ${body.name} is in ${system.eclipser.name}’s shadow right now; speed up the clock to watch it return to sunlight.` : '';
   if (quiet) { if (shade) ui.toast(shade.trim(), 6000); return; }
@@ -234,7 +265,7 @@ function arrive(body, aborted = false, quiet = false) {
 function pick(x, y) {
   let best = null, bestScore = Infinity;
   const sys = app.systemBody();
-  for (const b of system.bodies) {
+  for (const b of app.solarVisible ? system.bodies : []) {
     const sc = b.screen;
     if (!sc.onScreen) continue;
     if (b.kind === 'moon' && sys !== b.parent && state.focus !== b && sc.r < 4) continue;
@@ -244,6 +275,17 @@ function pick(x, y) {
     // inside a disc: prefer the nearest body; otherwise the closest on screen
     const score = d < sc.r ? sc.dist * 1e-12 : 1 + d;
     if (score < bestScore) { bestScore = score; best = b; }
+  }
+  if (best) return best;
+  // then galaxies and nebulae: the one whose centre is nearest, relative to its size on screen
+  for (const o of deep.objects) {
+    const sc = o.screen;
+    if (!sc.onScreen || sc.inside || (!o.group.visible && o !== state.focus)) continue;
+    const d = Math.hypot(sc.x - x, sc.y - y);
+    const hitR = Math.max(sc.r * 0.85, 16);
+    if (d > hitR) continue;
+    const score = d / hitR;
+    if (score < bestScore) { bestScore = score; best = o; }
   }
   return best;
 }
@@ -276,6 +318,7 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === 'r' || e.key === 'R') rig.resetLook();
   else if (e.key === 'g' || e.key === 'G') ui.setToggle('curvature', !ui.toggles.curvature);
   else if (e.key === 'b' || e.key === 'B') ui.setToggle('deepsky', !ui.toggles.deepsky);
+  else if (e.key === 'n' || e.key === 'N') ui.setToggle('dso', !ui.toggles.dso);
   else if (e.key === 'h' || e.key === 'H') ui.setChromeHidden(!ui.uiHidden);
   else if (e.key === 'p' || e.key === 'P') poster.open();
   else if (e.key === 'Enter' && e.target === document.body) app.engage();
@@ -401,6 +444,7 @@ const jobs = [...system.initialTextureJobs(), sky.loadMilkyWay()];
 Promise.allSettled(jobs).then((results) => {
   const failed = results.filter((r) => r.status === 'rejected').length;
   ui.hideLoader();
+  ui.loaded = true;
   if (failed) ui.toast(`${failed} map${failed > 1 ? 's' : ''} failed to load; those worlds use generated surfaces.`, 5000);
   else ui.toast(ui.toggles.console
     ? 'Pick a destination and speed below, then press <b>Engage</b>.'
@@ -435,8 +479,20 @@ function frame(now) {
   camera.position.set(0, 0, 0);
   camera.quaternion.copy(camQuat);
   camera.updateMatrixWorld();
-  system.updateRender(camPos, camera, viewport, travel.active ? travel.target : state.focus, app.systemBody());
-  spacetime.update(dt, camPos, travel.active ? travel.target : state.focus);
+  const here = travel.active ? travel.target : state.focus;
+  const dSun = camPos.length();
+  const dLy = dSun / LY_KM;
+  app.solarVisible = dSun < SOLAR_HIDE_KM;
+  system.glareFade = 1 - smooth(3e10, SOLAR_HIDE_KM, dSun);
+  system.updateRender(camPos, camera, viewport, here && !here.deep ? here : null, app.systemBody());
+  spacetime.update(dt, camPos, app.solarVisible && here && !here.deep ? here : null);
+  sky.setDistance(dLy);
+  deep.update(camPos, camQuat, viewport, camera.fov, {
+    focus: state.focus, target: travel.active ? travel.target : state.destination,
+    mwFade: smooth(6000, 50000, dLy), sunStar: smooth(1e11, SOLAR_HIDE_KM, dSun),
+  });
+  // build the deep-sky models a few at a time once the planets are loaded, the next destination first
+  if (!deep.allBuilt && ui.loaded && !travel.active) deep.buildNext(state.destination);
 
   const earth = system.byId.earth;
   if (earth.surface.uniforms.uCloudShift) {
@@ -446,7 +502,7 @@ function frame(now) {
   }
 
   for (const b of [state.focus, travel.active ? travel.target : state.destination]) {
-    if (b && b.screen.r > 260) system.upgradeTextures(b);
+    if (b && !b.deep && b.screen.r > 260) system.upgradeTextures(b);
   }
 
   // warp streaks
@@ -464,8 +520,9 @@ function frame(now) {
   sky.sync(camera);
   renderer.clear();
   if (sky.scene.visible) renderer.render(sky.scene, sky.camera);
+  renderer.render(deep.scene, deep.camera);
   renderer.clearDepth();
-  renderer.render(scene, camera);
+  if (app.solarVisible) renderer.render(scene, camera);
   if (streaks.visible) renderer.render(fxScene, camera);
 
   ui.updateLabels(viewport);

@@ -43,21 +43,26 @@ export class Travel {
     this.startQuat = fromQuat.clone();
     this.arriveDist = arrivalDistance(target);
 
-    // Approach from the sunlit side, a little above the orbital plane.
-    const toStart = fromPos.clone().sub(target.pos).normalize();
-    const toSun = target === sun ? toStart.clone() : sun.pos.clone().sub(target.pos).normalize();
-    const dir = toStart.multiplyScalar(0.45).addScaledVector(toSun, 0.8).add(new THREE.Vector3(0, 0.22, 0));
-    if (target.rings && target.data.rings === 'saturn') {
-      dir.addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(target.quat), 0.35);
+    if (target.approach) {
+      // galaxies and nebulae choose their own best viewpoint
+      this.offsetDir = target.approach(fromPos);
+    } else {
+      // Approach from the sunlit side, a little above the orbital plane.
+      const toStart = fromPos.clone().sub(target.pos).normalize();
+      const toSun = target === sun ? toStart.clone() : sun.pos.clone().sub(target.pos).normalize();
+      const dir = toStart.multiplyScalar(0.45).addScaledVector(toSun, 0.8).add(new THREE.Vector3(0, 0.22, 0));
+      if (target.rings && target.data.rings === 'saturn') {
+        dir.addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(target.quat), 0.35);
+      }
+      this.offsetDir = dir.normalize();
     }
-    this.offsetDir = dir.normalize();
 
     _end.copy(target.pos).addScaledVector(this.offsetDir, this.arriveDist);
     this.D0 = _end.distanceTo(this.startPos);
     this.realDuration = this.D0 / speed;
     const departScale = origin ? Math.max(this.startPos.distanceTo(origin.pos) - origin.radius * 0.6, origin.radius * 0.4) : this.D0 * 0.002;
-    this.A = THREE.MathUtils.clamp(departScale / this.D0, 1e-9, 0.5);
-    this.B = THREE.MathUtils.clamp(this.arriveDist / this.D0, 1e-9, 0.5);
+    this.A = THREE.MathUtils.clamp(departScale / this.D0, 1e-18, 0.5);
+    this.B = THREE.MathUtils.clamp(this.arriveDist / this.D0, 1e-18, 0.5);
     this.animDuration = warp === 0
       ? THREE.MathUtils.clamp(2.6 + 1.15 * Math.log10(Math.max(this.D0, 1000) / 1000), 3.5, 13)
       : this.realDuration / warp;
@@ -97,7 +102,7 @@ export class Travel {
     this.pos.copy(this.startPos).addScaledVector(span, f);
     this.travelDir.copy(span).normalize();
 
-    lookQuaternion(this.pos, this.target.pos, _look);
+    lookQuaternion(this.pos, this.target.pos, _look, this.target.up);
     const turn = this.warp === 0 ? Math.min(1.4, this.animDuration * 0.18) : 1.5;
     const k = THREE.MathUtils.smoothstep(this.elapsed, 0, turn);
     this.quat.copy(this.startQuat).slerp(_look, k);

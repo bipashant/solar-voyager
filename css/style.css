@@ -80,6 +80,17 @@ kbd {
 .lbl.const { color: rgba(147, 190, 255, 0.62); font: 600 10px/1 var(--font-display); text-transform: uppercase; letter-spacing: 0.24em; pointer-events: none; }
 .lbl.const::before, .lbl.sname::before { display: none; }
 .lbl.sname { color: rgba(220, 228, 240, 0.7); font: 400 10px/1 var(--font-body); pointer-events: none; transform-origin: left center; }
+/* galaxies, nebulae and clusters: a small ring in the object's colour, then its name */
+.lbl.dso { color: #d8cdf2; font: 500 11px/1 var(--font-body); letter-spacing: 0.04em; }
+.lbl.dso::before {
+  width: 7px; height: 7px; border-radius: 50%; background: transparent; opacity: 0.9;
+  border: 1px solid var(--c, currentColor); box-shadow: 0 0 6px var(--c, transparent);
+}
+.lbl.dso.galaxy { color: #e9dcc0; }
+.lbl.dso.nebula { color: #f2c9d6; }
+.lbl.dso.cluster { color: #c9d8f5; }
+.lbl.dso.dest { color: var(--amber); }
+.lbl.dso:hover { color: var(--amber); }
 
 /* ---------------------------------------------------------------- cockpit */
 #cockpit { position: fixed; inset: 0; pointer-events: none; transition: opacity 0.4s; }

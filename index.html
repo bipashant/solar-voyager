@@ -66,7 +66,7 @@
   <button id="zoom-out" class="zoom-btn" type="button" aria-label="Zoom out" title="Zoom out · hold to keep zooming (S or −)">
     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12"/></svg>
   </button>
-  <div class="zoom-readout"><span>Alt</span><b id="zoom-alt">—</b></div>
+  <div class="zoom-readout"><span id="zoom-alt-label">Alt</span><b id="zoom-alt">—</b></div>
 </div>
 
 <header class="topbar">
@@ -110,6 +110,7 @@
     <div class="tog-section">
       <div class="eyebrow">Sky</div>
       <button class="tog" type="button" data-toggle="deepsky" aria-pressed="true"><span class="tog-text"><b>Deep sky</b><small>The Milky Way and background stars</small></span><kbd>B</kbd><i class="switch" aria-hidden="true"></i></button>
+      <button class="tog" type="button" data-toggle="dso" aria-pressed="true"><span class="tog-text"><b>Galaxies &amp; nebulae</b><small>3D deep-sky objects you can fly to</small></span><kbd>N</kbd><i class="switch" aria-hidden="true"></i></button>
       <button class="tog" type="button" data-toggle="constellations" aria-pressed="false"><span class="tog-text"><b>Constellations</b><small>Figures joining the bright stars</small></span><i class="switch" aria-hidden="true"></i></button>
       <button class="tog" type="button" data-toggle="starnames" aria-pressed="false"><span class="tog-text"><b>Star names</b><small>Names of the brightest stars</small></span><i class="switch" aria-hidden="true"></i></button>
     </div>
@@ -188,7 +189,7 @@
     <dl class="facts" id="info-facts"></dl>
     <p class="blurb" id="info-blurb"></p>
     <div class="chip-group" id="info-features-wrap">
-      <div class="eyebrow">Surface features · tap to look</div>
+      <div class="eyebrow" id="info-features-title">Surface features · tap to look</div>
       <div class="chips" id="info-features"></div>
     </div>
     <div class="chip-group" id="info-moons-wrap">
@@ -309,19 +310,20 @@
       <div><span class="keys"><kbd>Scroll</kbd> or <kbd>Pinch</kbd></span><span class="what">Zoom from deep space down to the surface</span></div>
       <div><span class="keys"><kbd>+</kbd> <kbd>−</kbd> buttons or slider</span><span class="what">Zoom with the control on the left; hold a button to keep zooming</span></div>
       <div><span class="keys"><kbd>Right-drag</kbd> or <kbd>Shift</kbd> + drag</span><span class="what">Look around the cockpit</span></div>
-      <div><span class="keys"><kbd>Tap</kbd></span><span class="what">Pick a planet, moon or label as the destination</span></div>
+      <div><span class="keys"><kbd>Tap</kbd></span><span class="what">Pick a planet, moon, galaxy, nebula or label as the destination</span></div>
       <div><span class="keys"><kbd>Double-tap</kbd></span><span class="what">Fly there straight away</span></div>
       <div><span class="keys"><kbd>Arrows</kbd> <kbd>W</kbd> <kbd>S</kbd></span><span class="what">Orbit and zoom from the keyboard</span></div>
       <div><span class="keys"><kbd>R</kbd></span><span class="what">Re-centre the view</span></div>
       <div><span class="keys"><kbd>P</kbd> or the Poster button</span><span class="what">Make a printable poster of the solar system on any date, such as a birthday</span></div>
       <div><span class="keys"><kbd>B</kbd></span><span class="what">Show or hide the deep sky (Milky Way and stars), leaving only the Sun, planets and moons</span></div>
+      <div><span class="keys"><kbd>N</kbd></span><span class="what">Show or hide the 3D galaxies, nebulae and star clusters. Pick one under Destination and press Engage to fly there</span></div>
       <div><span class="keys"><kbd>G</kbd></span><span class="what">Show spacetime curvature: gravity wells and bent starlight</span></div>
       <div><span class="keys"><kbd>H</kbd> or the eye button</span><span class="what">Hide every control for a clear view. The dock at the bottom keeps details, flight controls and Engage one tap away</span></div>
       <div><span class="keys"><kbd>Space</kbd></span><span class="what">Pause or resume time</span></div>
       <div><span class="keys"><kbd>Esc</kbd></span><span class="what">Abort a flight</span></div>
     </div>
-    <p class="help-note">Sizes and distances are to true scale, so most worlds are tiny dots until you get close. Planet positions follow the real date: Earth's day side and the Moon's phase match the sky right now. Cinematic flights compress time, and the ship clock shows how long the trip really takes at the speed you chose.</p>
-    <p class="help-credit">Planet maps: Solar System Scope (CC BY 4.0), based on NASA imagery. Orbits: JPL approximate Keplerian elements. Moons without spacecraft maps are generated from their known colours and terrain.</p>
+    <p class="help-note">Sizes and distances are to true scale, so most worlds are tiny dots until you get close, and the galaxies and nebulae are thousands to millions of light-years away. Planet positions follow the real date: Earth's day side and the Moon's phase match the sky right now. Cinematic flights compress time, and the ship clock shows how long the trip really takes at the speed you chose.</p>
+    <p class="help-credit">Planet maps: Solar System Scope (CC BY 4.0), based on NASA imagery. Orbits: JPL approximate Keplerian elements. Moons without spacecraft maps are generated from their known colours and terrain. Galaxies, nebulae and clusters are 3D models built from their real positions, distances, sizes and shapes, coloured by the light their gas and stars give off.</p>
     <button id="help-close" class="btn-engage" type="button"><span>Back to the cockpit</span></button>
   </div>
 </div>

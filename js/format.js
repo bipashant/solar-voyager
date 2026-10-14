@@ -1,8 +1,21 @@
 import { AU_KM, C_KMS } from './ephemeris.js';
 
 const n0 = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+const LY_KM = 9460730472580.8;
+const sig3 = (x) => n0.format(Number(x.toPrecision(3)));
+
+// Interstellar distances in light-years: "1,344 light-years", "2.54 million light-years".
+export function fmtLightYears(km) {
+  const ly = km / LY_KM;
+  if (ly < 10) return `${ly.toFixed(2)} light-years`;
+  if (ly < 1e4) return `${n0.format(ly)} light-years`;
+  if (ly < 1e6) return `${sig3(ly)} light-years`;
+  if (ly < 1e9) return `${(ly / 1e6).toFixed(ly < 1e7 ? 2 : 1)} million light-years`;
+  return `${(ly / 1e9).toFixed(2)} billion light-years`;
+}
 
 export function fmtDistance(km) {
+  if (km >= 1e12) return fmtLightYears(km);
   if (km < 1) return `${Math.round(km * 1000)} m`;
   if (km < 100) return `${km.toFixed(1)} km`;
   if (km < 1e6) return `${n0.format(km)} km`;
@@ -11,6 +24,13 @@ export function fmtDistance(km) {
 }
 
 export function fmtCompact(km) {
+  if (km >= 1e12) {
+    const ly = km / LY_KM;
+    if (ly < 10) return `${ly.toFixed(2)} ly`;
+    if (ly < 1e4) return `${n0.format(ly)} ly`;
+    if (ly < 1e6) return `${(ly / 1e3).toFixed(ly < 1e5 ? 1 : 0)}k ly`;
+    return `${(ly / 1e6).toFixed(ly < 1e7 ? 2 : 1)}M ly`;
+  }
   if (km < 1) return `${Math.round(km * 1000)} m`;
   if (km < 1000) return `${km.toFixed(km < 10 ? 1 : 0)} km`;
   if (km < 1e6) return `${(km / 1e3).toFixed(km < 1e4 ? 1 : 0)}k km`;
