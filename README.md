@@ -1,6 +1,6 @@
 # Solar Voyager
 
-**Fly a spaceship through a true-scale, real-time Solar System, right in your browser.**
+**Fly a spaceship through a true-scale, real-time Solar System, and on out to the nebulae and galaxies beyond it, right in your browser.**
 
 ![Jupiter and the Great Red Spot, seen from 130,000 km](docs/images/hero-jupiter.jpg)
 
@@ -19,6 +19,7 @@ There is no build step, framework or backend. You need a static file server and 
 - **Eclipses and shadows.** Moons cast shadows on planets, planets eclipse their moons, Saturn's rings shadow the planet, and the planet shadows its rings.
 - **Posters of any date.** A birthday, a wedding, the day you met: the poster studio draws every planet where it really was, rendered by the 3D engine and lit by the Sun, plus that night's Moon phase, ready to print at 18 × 24 in. An optional deep-sky background puts the real Milky Way, bright stars and nebulae behind it, projected so the ecliptic lands on the poster's constellation ring.
 - **Spacetime curvature.** One toggle shows general relativity at work: a grid that sinks into each world's gravity well, shaped by its real mass, and starlight bending around planets into Einstein rings.
+- **Galaxies and nebulae you can fly to.** 20 deep-sky objects, built in 3D at their real positions, distances and sizes: the Andromeda, Triangulum, Whirlpool, Sombrero and Cigar galaxies, Messier 87, Centaurus A, the Large Magellanic Cloud and our own Milky Way seen from outside; the Orion, Eagle, Lagoon, Carina, Crab, Ring, Helix, Horsehead and Veil nebulae; the Pleiades and Omega Centauri. Nebulae glow in the colours of their emission lines, dust lanes and pillars stand in silhouette, and each object has highlights to fly in close to, such as the Pillars of Creation.
 
 ---
 
@@ -93,17 +94,18 @@ In VS Code, the *Live Server* extension also works.
 | **+** / **−** buttons (left edge) | Zoom one step; hold to keep zooming |
 | Zoom slider (left edge) | Jump to any altitude; top is the surface, bottom is deep space |
 | Right-drag, or Shift + drag | Look around the cockpit without moving the ship |
-| Tap a body or label | Set it as the destination |
-| Double-tap a body | Fly there straight away |
+| Tap a body, galaxy, nebula or label | Set it as the destination |
+| Double-tap a body or label | Fly there straight away |
 | Arrow keys / A, D | Orbit from the keyboard |
 | W / S, + / − keys | Zoom from the keyboard |
 | R | Re-centre the view after looking around |
 | B, or the **Deep sky** button | Hide the Milky Way and background stars to see only the Sun, planets and moons against black space |
+| N, or the **Galaxies & nebulae** button | Show or hide the 3D galaxies, nebulae and star clusters and their labels (the one you are visiting stays) |
 | G | Show or hide spacetime curvature (same as the **Curvature** button) |
 | P, or the **Poster** button | Open the poster studio: the solar system on any date from 1800 to 2050, as a print-ready PNG (link straight to it with `#poster`) |
 | H, or the eye button (top right) | Hide every control for a clear, full-screen view; press again, or tap the small eye, to bring them back |
 | Dock (bottom, while controls are hidden) | Shows where you're headed and the trip time. Its icons open the details, open the flight controls (the flight readout while flying), and Engage or abort in one tap. On a phone, tap empty space to put panels away |
-| **View** button (top right) | Opens the display options, grouped: orbits and labels, deep sky, constellations and star names, curvature, cockpit, and the **Details** and **Flight console** panels. The badge counts what is on. On phones it also holds Poster, Help and Full screen |
+| **View** button (top right) | Opens the display options, grouped: orbits and labels, deep sky, galaxies and nebulae, constellations and star names, curvature, cockpit, and the **Details** and **Flight console** panels. The badge counts what is on. On phones it also holds Poster, Help and Full screen |
 | × on a panel | Closes the Details panel or the Flight console and switches it off under View. While the console is closed, a small dock at the bottom keeps the destination, trip time and Engage one tap away |
 | Space | Pause or resume time |
 | Enter | Engage (when nothing else has focus) |
@@ -125,6 +127,16 @@ On phones the zoom control moves to the right edge and shows only the buttons. T
 | En route to Saturn at light speed (×658 time-lapse) | Pulled back to 3 billion km above Earth: real planetary positions on 11 October 2026 |
 | ![Orion, Taurus and Canis Major with constellation lines](docs/images/constellations.jpg) | ![Jupiter's Great Red Spot](docs/images/hero-jupiter.jpg) |
 | Constellations and star names over the Milky Way: Orion, Taurus, Canis Major and Minor | The cockpit interface at Jupiter |
+| ![Earth with the Orion and Taurus nebulae labelled](docs/images/deep-sky-earth.jpg) | ![On the way to the Orion Nebula at light speed](docs/images/deep-sky-flight.jpg) |
+| From near Earth: the Orion Nebula, Horsehead and Crab Nebula sit at their real places on the sky | Leaving the Solar System for the Orion Nebula at light speed, 1,344 light-years away |
+| ![The Orion Nebula with its details panel](docs/images/deep-sky-orion.jpg) | ![The Pillars of Creation in the Eagle Nebula](docs/images/deep-sky-pillars.jpg) |
+| The Orion Nebula: teal oxygen glow round the Trapezium stars, pink hydrogen, the dark bay and M43 | Flown in close to the Pillars of Creation, dark columns against the glowing Eagle Nebula |
+| ![The Andromeda Galaxy](docs/images/deep-sky-andromeda.jpg) | ![The Milky Way seen from outside](docs/images/deep-sky-milky-way.jpg) |
+| The Andromeda Galaxy, 2.5 million light-years out, with its satellites M32 and M110 | Our Milky Way from 120,000 light-years above the disc, with the nebulae of its arms and the Large Magellanic Cloud |
+
+![All 20 deep-sky objects](docs/images/deep-sky-gallery.jpg)
+
+*Every galaxy, nebula and cluster you can fly to, drawn by the same 3D models.*
 
 ---
 
@@ -141,7 +153,8 @@ flowchart TD
   D --> F["Place every body relative to the camera, refresh view-space uniforms"]
   E --> F
   F --> G["Render the sky scene: Milky Way, stars, constellation lines"]
-  G --> H["Clear depth, then render the Solar System scene"]
+  G --> G2["Render the deep-sky scene: galaxies, nebulae, clusters (light-years)"]
+  G2 --> H["Clear depth, then render the Solar System scene (skipped beyond ~2,000 AU)"]
   H --> I["Render warp streaks (only during fast flights)"]
   I --> J["Update HTML labels, zoom control, info panel, flight display"]
 ```
@@ -152,7 +165,7 @@ Step by step:
 2. **Ephemeris.** `SolarSystem.update(jd)` computes the position and orientation of all 75 bodies (section 7).
 3. **Camera.** Either the flight controller (`Travel`) or the orbit controller (`CameraRig`) decides where the ship is and which way it faces.
 4. **Camera-relative placement.** `SolarSystem.updateRender()` subtracts the ship's position from every body's position in 64-bit JavaScript numbers before anything reaches the GPU (section 6). It also projects each body to the screen for labels and picking, and fills in the shader inputs: the Sun's direction, eclipse casters and ring geometry.
-5. **Render.** Two scenes are drawn back to back. The sky first, then, after clearing the depth buffer, the planets, moons, rings, atmospheres, orbit lines and glare.
+5. **Render.** Three scenes are drawn back to back. The sky first, then the galaxies, nebulae and star clusters, then, after clearing the depth buffer, the planets, moons, rings, atmospheres, orbit lines and glare.
 6. **Interface.** Labels are plain HTML elements, positioned every frame from the screen projections computed in step 4.
 
 ---
@@ -237,7 +250,7 @@ Textures follow the same convention: the centre of each map (`u = 0.5`) is longi
 
 ## 8. How the sky is built
 
-The sky has three layers, all in the `Sky` scene (`js/sky.js`).
+The sky has three layers in the `Sky` scene (`js/sky.js`), and a fourth, the galaxies and nebulae, in a scene of its own (`js/deepsky.js`).
 
 ### Layer 1: the Milky Way panorama
 
@@ -275,6 +288,30 @@ The sky sphere's vertices are pushed to the far plane (`gl_Position = p.xyww`), 
 - Both kinds of name are HTML labels. They hide when a planet's disc or the Sun's glare is in front of them, because a label floating over Jupiter would look wrong.
 
 The sky is fixed to the stars, not to the Solar System, so the constellations look the same from anywhere in the system. That is true in reality too: the nearest star is about 7,000 times farther away than Neptune.
+
+### Layer 4: galaxies, nebulae and star clusters
+
+Twenty deep-sky objects (`js/deepsky-data.js`) are real places you can fly to, not pictures on the sky sphere. Each has its J2000 position, distance, physical size and, for disc galaxies, the position angle and inclination of its disc, so it sits in 3D exactly where it is, at its true size, and tilted the way we see it. From Earth they appear at their catalogue positions on top of the same smudges in the Milky Way panorama.
+
+**One scene in light-years.** Positions stay in kilometres from the Sun in 64-bit numbers, like the planets. Each frame `DeepSky.update()` subtracts the ship's position and divides by a light-year, so the GPU sees the Orion Nebula 1,344 units away rather than 1.3 × 10¹⁶ km. The objects get their own camera (same orientation and field of view as the cockpit) and draw between the sky and the Solar System.
+
+**Models made of soft particles.** `js/deepsky-models.js` builds each object procedurally from a seeded random generator, in three layers:
+
+| Layer | Blending | What it draws |
+| --- | --- | --- |
+| Glow | Added | Gas and unresolved starlight: spiral arms, bulges, nebula walls, filaments |
+| Dust | Multiplied (`dst × (1 − src)`) | Absorbs whatever was drawn behind it, a little more blue than red, so dust lanes, pillars and the Horsehead stand out in silhouette and redden the light |
+| Stars | Added | Sharp points that stop growing at a few pixels, so star clusters stay crisp up close |
+
+Shapes follow the real objects: logarithmic spiral arms with dust on their inner edges and pink star-forming knots along them (Andromeda's ring of star formation, the Whirlpool's arm reaching its companion NGC 5195, Triangulum's patchy arms and NGC 604), Hernquist-profile bulges and elliptical galaxies, a dusty ring for the Sombrero, a red superwind for the Cigar Galaxy, the jet of M87, the warped dust lane of Centaurus A, the Orion Nebula's bowl-shaped cavity opening towards us, pillars that are dark inside and lit on the side facing their star cluster, the Crab's cage of filaments around a blue synchrotron glow, the Ring Nebula's barrel seen end-on, the Veil's shock filaments brightest where we see them edge-on, and the Pleiades' blue reflection nebula round its real bright stars.
+
+**Colours from emission lines.** Nebulae are coloured by the light their gas gives off, as in true-colour images: hydrogen-alpha rose red, doubly ionised oxygen teal, ionised nitrogen and sulphur deep red and orange, ionised helium blue, and starlight scattered by dust blue. Hot inner zones near the ionising stars take the oxygen and helium colours, cooler outer zones the hydrogen and nitrogen ones.
+
+**True size and surface brightness at any distance.** A particle's sprite is sized in the object's own units, so the object keeps its real angular size. When a sprite would be smaller than about a pixel it is drawn at that pixel size but dimmer, keeping its total light, so a galaxy fades into a faint smudge the way it should rather than vanishing. Particles are stored in shuffled order, so drawing only the first few thousand is a fair sample: small objects on screen draw fewer, brighter particles. Sprites that would fill the view fade out, so you can fly into a nebula without the nearest wisps fogging the screen.
+
+**Leaving home.** As the ship travels out, the bright stars and constellation figures fade within a few hundred light-years (they are our neighbours), the Solar System stops drawing beyond about 2,000 AU and the Sun becomes a single labelled star, and between 6,000 and 50,000 light-years the Milky Way panorama hands over to a 3D model of the Milky Way: a barred spiral with four arms, the Sun in the Orion Spur 26,670 light-years from the centre, oriented with the real galactic pole and centre.
+
+**Arriving.** Each object has its own viewpoint (`viewDir`) and up direction. Nebulae arrive as they are usually pictured, north up and seen from Earth's side; disc galaxies keep their disc level. The camera orbits the object in that frame, and you can zoom right into its core. The highlight chips in the details panel move the orbit's centre to a feature, such as the Pillars of Creation, Eta Carinae and its Homunculus, or the Tarantula Nebula in the Large Magellanic Cloud. **R** returns to the whole object.
 
 ---
 
@@ -623,7 +660,7 @@ first half:   travelled = ½ · (K₁^(2λ) − 1) / (K₁ − 1)        with K�
 second half:  remaining = ½ · (K₂^(2(1−λ)) − 1) / (K₂ − 1)    with K₂ = 0.5 / (arrival distance / total)
 ```
 
-You see Earth shrink away smoothly, a long dash through empty space, then Neptune swelling into view. The animation lasts `clamp(2.6 + 1.15 × log10(distance / 1000 km), 3.5, 13)` seconds: about 6 s to the Moon and about 10 s across the system. The flight display shows the resulting **time-lapse factor**, for example ×658 for a light-speed trip from Jupiter to Saturn.
+You see Earth shrink away smoothly, a long dash through empty space, then Neptune swelling into view. The same profile carries a flight to Andromeda across 20 orders of magnitude, from a few hundred kilometres above Earth to 2.5 million light-years. The animation lasts `clamp(2.6 + 1.15 × log10(distance / 1000 km), 3.5, 13)` seconds: about 6 s to the Moon and about 10 s across the system. The flight display shows the resulting **time-lapse factor**, for example ×658 for a light-speed trip from Jupiter to Saturn.
 
 ### Real-time mode
 
@@ -658,6 +695,11 @@ The ship moves at `speed × time-lapse` km per second in a straight line, and th
 | Masses (GM) of the Sun, planets and major moons | Real, JPL values; small moons without a measured mass use 1.3 g/cm³ |
 | Spacetime curvature: well shapes, depth ratios, Einstein radii | Real (weak-field general relativity) |
 | Spacetime curvature: overall depth and lensing strength | **Exaggerated** by the factors shown in the info panel |
+| Galaxy, nebula and cluster positions, distances and sizes | Real (J2000 positions; published distances and sizes) |
+| Orientation of disc galaxies on the sky | Real position angles and inclinations; which side of the disc is nearer is not always known |
+| Shapes and colours of galaxies, nebulae and clusters | **Procedural 3D models** of their known structure, coloured by their emission lines; the depth structure of most nebulae is not known, so it is plausible rather than measured |
+| Milky Way seen from outside | **Model**: a barred four-arm spiral with the Sun in the Orion Spur at the real distance from the centre |
+| Sky seen from other stars | The Milky Way panorama is the view from the Sun; it fades out as you leave the galaxy |
 
 ---
 
@@ -672,11 +714,16 @@ js/data.js            Every body's physical/orbital data and facts; ring tables;
 js/bodies.js          SolarSystem class: meshes, materials, rings, atmospheres, orbit lines, markers,
                       per-frame camera-relative placement and shader inputs
 js/shaders.js         All GLSL: noise, craters, surfaces, clouds, Sun, atmospheres, rings, sky,
-                      stars, lensing, curvature sheet, orbits, markers, glare, warp streaks
+                      stars, lensing, curvature sheet, orbits, markers, glare, warp streaks,
+                      deep-sky particles
 js/sky.js             Milky Way sphere, star points (and their lensed inner images), constellation
                       lines, sky projection
 js/stars.js           Bright-star catalogue and constellation figures
-js/controls.js        CameraRig: orbit, log-altitude zoom, free look, tap/double-tap, zoom API
+js/deepsky-data.js    Galaxies, nebulae and clusters: positions, distances, sizes, orientations, facts
+js/deepsky-models.js  Procedural 3D particle models of every deep-sky object
+js/deepsky.js         DeepSky class: light-year scene, placement, level of detail, labels and fades
+js/controls.js        CameraRig: orbit (in a deep-sky object's own frame), log-altitude zoom, free look,
+                      tap/double-tap, zoom API
 js/travel.js          Flight planning, cinematic log profile, real-time mode
 js/poster.js          Poster studio: date to planet directions, 2D poster layout, print-size PNG export
 js/spacetime.js       Masses, gravity-well sheet, free-falling frame, gravitational lensing inputs
@@ -712,6 +759,10 @@ Append an entry to `BODIES` in `js/data.js`. Here is Amalthea, for example:
 
 Optional fields include `e` (eccentricity), `irregular: true` (inclination measured from the ecliptic), `spin` (rotation period in days, for moons that aren't tidally locked), `style` (any style from section 9.2), `relief`, `craters`, `bigCrater: [lat, lon, angularRadius°, ring?]`, `atmosphere: { color, thickness, intensity, mie }`, `facts`, `blurb` and `features: [{ name, lat, lon }]`. The destination menu, labels, orbit line, info panel and moon list pick it up automatically.
 
+### Add a galaxy or nebula
+
+Append an entry to `DSO` in `js/deepsky-data.js` with its `ra`, `dec` (degrees), `dist` and `radius` (light-years), `kind` (`'galaxy'`, `'nebula'` or `'cluster'`), a `color` for its label, and `facts`, `blurb` and `features` like a planet's (features take `p: [x, y, z]` in the model's frame, in radii). Disc galaxies add `orient: { pa, incl }`. Then either reuse a model (`model: 'triangulum'`) or add one to `MODELS` in `js/deepsky-models.js`; the building blocks there (`spiral`, `ellipsoid`, `pillar`, `strand`, `blob`, `globulars`) cover most shapes. The destination menu, labels, flights and details panel pick it up automatically.
+
 ### Add a speed
 
 Add an entry to `SPEEDS` in `js/data.js`:
@@ -732,6 +783,7 @@ The app exposes itself as `window.solarVoyager`:
 
 ```js
 solarVoyager.jumpTo('saturn')                    // arrive instantly
+solarVoyager.jumpTo('andromeda')                 // galaxies and nebulae too
 solarVoyager.state.simMs = Date.UTC(2017, 5, 15) // set the date (Saturn's northern summer)
 solarVoyager.setTimeRate('day')                  // one day per second
 solarVoyager.rig.setZoomFraction(0.9)            // zoom close to the surface
@@ -745,12 +797,14 @@ solarVoyager.rig.setZoomFraction(0.9)            // zoom close to the surface
 - **Phones and tablets:** supported, with a touch layout. Very old mobile GPUs may skip the 8k textures automatically.
 - **Performance:** about 60 fps at 1440 × 900 on an Apple M4. The cost is mostly pixel shading. Band-limited noise stops evaluating octaves that would be smaller than a pixel, distant bodies cost almost nothing, and the device pixel ratio is capped at 2.
 - **Memory:** the first load fetches about 7 MB of textures. High-resolution maps load only for worlds you visit closely; the full set is about 34 MB.
+- **Deep-sky objects:** the 20 models (about 1.2 million particles in all) are generated in the browser, one per frame after the planets load, with no extra downloads. Objects that are small on screen draw a fraction of their particles, and sprites that would cover the screen fade out, which keeps flights through a nebula affordable on modest GPUs.
 
 ---
 
 ## 18. Credits
 
 - **Planet, Sun, Moon and Milky Way maps:** [Solar System Scope](https://www.solarsystemscope.com/textures/), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), based on NASA imagery.
+- **Deep-sky positions, distances and sizes:** published catalogue values (Messier, NGC and Barnard catalogues; Gaia-era distances where available).
 - **Planetary orbits:** E. M. Standish, JPL Solar System Dynamics, *Keplerian Elements for Approximate Positions of the Major Planets*.
 - **Rotation models:** IAU Working Group on Cartographic Coordinates and Rotational Elements.
 - **Simplex noise:** Ian McEwan and Stefan Gustavson (Ashima Arts), MIT licence.

@@ -7,6 +7,9 @@ const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const _v = new THREE.Vector3();
+const _up = new THREE.Vector3();
+const _f = new THREE.Vector3();
+const _alt = new THREE.Vector3();
 const MAX_ALT = 3e10; // km above the focused body
 
 export class CameraRig {
@@ -23,6 +26,14 @@ export class CameraRig {
     this.onInteract = null;
     this.pointers = new Map();
     this.keys = new Set();
+    // Orbit frame: identity for the Sun, planets and moons (ecliptic north up). Deep-sky objects have
+    // their own, so a nebula arrives the way it is usually pictured and a disc galaxy keeps its disc level.
+    this.frameQ = new THREE.Quaternion();
+    this.frameQi = new THREE.Quaternion();
+    // Point the camera orbits, as an offset from the focus centre (km): non-zero only while looking at a
+    // feature inside a galaxy or nebula.
+    this.pivot = new THREE.Vector3();
+    this.tPivot = new THREE.Vector3();
     this.bind();
   }
 
@@ -98,16 +109,21 @@ export class CameraRig {
     return Math.hypot(a.x - b.x, a.y - b.y);
   }
 
+  // Radius the altitude is measured from: the surface, or for a nebula or galaxy a small core, so you
+  // can fly right into it.
+  focusR() { return this.focus ? (this.focus.coreRadius ?? this.focus.maxRadius) : 0; }
+
   // Slow the orbit rate down when hugging a surface.
   rotateScale() {
     if (!this.focus) return 1;
     const alt = Math.exp(this.tLogAlt);
-    return THREE.MathUtils.clamp((alt / this.focus.maxRadius) * 1.2 + 0.015, 0.015, 1);
+    return THREE.MathUtils.clamp((alt / this.focusR()) * 1.2 + 0.015, 0.015, 1);
   }
 
-  minAlt() { return this.focus ? Math.max(this.focus.maxRadius * 0.0006, 0.03) : 1; }
+  minAlt() { return this.focus ? Math.max(this.focus.minAlt ?? this.focus.maxRadius * 0.0006, 0.03) : 1; }
+  maxAlt() { return this.focus?.maxAlt ?? MAX_ALT; }
   clampAlt() {
-    this.tLogAlt = THREE.MathUtils.clamp(this.tLogAlt, Math.log(this.minAlt()), Math.log(MAX_ALT));
+    this.tLogAlt = THREE.MathUtils.clamp(this.tLogAlt, Math.log(this.minAlt()), Math.log(this.maxAlt()));
   }
 
   // On-screen zoom control: one step is a factor of about 1.6 in altitude.
@@ -120,13 +136,13 @@ export class CameraRig {
 
   // 0 = farthest out, 1 = skimming the surface (log scale).
   zoomFraction() {
-    const lo = Math.log(this.minAlt()), hi = Math.log(MAX_ALT);
+    const lo = Math.log(this.minAlt()), hi = Math.log(this.maxAlt());
     return THREE.MathUtils.clamp((hi - this.tLogAlt) / (hi - lo), 0, 1);
   }
 
   setZoomFraction(f) {
     if (!this.enabled) return;
-    const lo = Math.log(this.minAlt()), hi = Math.log(MAX_ALT);
+    const lo = Math.log(this.minAlt()), hi = Math.log(this.maxAlt());
     this.tLogAlt = hi - THREE.MathUtils.clamp(f, 0, 1) * (hi - lo);
     this.clampAlt();
     this.onInteract?.();
@@ -134,22 +150,35 @@ export class CameraRig {
 
   altitude() { return Math.exp(this.logAlt); }
 
-  distance() { return (this.focus ? this.focus.maxRadius : 0) + Math.exp(this.logAlt); }
+  distance() { return this.focusR() + Math.exp(this.logAlt); }
+
+  // Up direction of the orbit frame, in world space.
+  up(out = new THREE.Vector3()) { return out.set(0, 1, 0).applyQuaternion(this.frameQ); }
 
   // Adopt the camera position reached by a flight (or any external move) without a jump.
   syncFrom(body, camPos, camQuat) {
     this.focus = body;
-    _v.copy(camPos).sub(body.pos);
+    if (body.frameQuat) this.frameQ.copy(body.frameQuat); else this.frameQ.identity();
+    this.frameQi.copy(this.frameQ).invert();
+    _v.copy(camPos).sub(body.pos).applyQuaternion(this.frameQi);
     const dist = _v.length();
     this.yaw = this.tYaw = Math.atan2(_v.x, _v.z);
     this.pitch = this.tPitch = Math.asin(THREE.MathUtils.clamp(_v.y / dist, -1, 1));
-    this.logAlt = this.tLogAlt = Math.log(Math.max(dist - body.maxRadius, this.minAlt()));
+    this.logAlt = this.tLogAlt = Math.log(Math.max(dist - this.focusR(), this.minAlt()));
     this.lookYaw = this.tLookYaw = 0;
     this.lookPitch = this.tLookPitch = 0;
+    this.pivot.set(0, 0, 0);
+    this.tPivot.set(0, 0, 0);
+  }
+
+  // Orbit a point inside the focus (offset from its centre, km), or its centre again with no argument.
+  setPivot(offset) {
+    if (offset) this.tPivot.copy(offset); else this.tPivot.set(0, 0, 0);
   }
 
   // Swing the camera so it sits above a world-space direction from the focus centre.
-  lookAtDirection(dir, alt) {
+  lookAtDirection(worldDir, alt) {
+    const dir = _alt.copy(worldDir).applyQuaternion(this.frameQi);
     let yaw = Math.atan2(dir.x, dir.z);
     while (yaw - this.tYaw > Math.PI) yaw -= Math.PI * 2;
     while (yaw - this.tYaw < -Math.PI) yaw += Math.PI * 2;
@@ -159,7 +188,7 @@ export class CameraRig {
     this.tLookYaw = 0; this.tLookPitch = 0;
   }
 
-  resetLook() { this.tLookYaw = 0; this.tLookPitch = 0; }
+  resetLook() { this.tLookYaw = 0; this.tLookPitch = 0; this.tPivot.set(0, 0, 0); }
 
   update(dt, outPos, outQuat) {
     if (this.enabled) {
@@ -180,21 +209,34 @@ export class CameraRig {
     this.lookYaw += (this.tLookYaw - this.lookYaw) * a;
     this.lookPitch += (this.tLookPitch - this.lookPitch) * a;
 
-    const f = this.focus.pos;
+    this.pivot.lerp(this.tPivot, 1 - Math.exp(-dt * 4));
+    const f = _f.copy(this.focus.pos).add(this.pivot);
     const dist = this.distance();
     const cp = Math.cos(this.pitch);
-    outPos.set(f.x + dist * cp * Math.sin(this.yaw), f.y + dist * Math.sin(this.pitch), f.z + dist * cp * Math.cos(this.yaw));
-    lookQuaternion(outPos, f, outQuat);
+    _v.set(cp * Math.sin(this.yaw), Math.sin(this.pitch), cp * Math.cos(this.yaw)).applyQuaternion(this.frameQ);
+    outPos.copy(f).addScaledVector(_v, dist);
+    lookQuaternion(outPos, f, outQuat, this.up(_up));
     _e.set(this.lookPitch, this.lookYaw, 0, 'YXZ');
     _q.setFromEuler(_e);
     outQuat.multiply(_q);
   }
 }
 
-// Quaternion that points a camera at `target` from `eye`, keeping ecliptic north up.
-export function lookQuaternion(eye, target, out) {
-  _v.copy(eye).sub(target);
+// Quaternion that points a camera at `target` from `eye`, keeping `up` (by default ecliptic north) up.
+const _lv = new THREE.Vector3();
+const _lu = new THREE.Vector3();
+const _origin = new THREE.Vector3();
+export function lookQuaternion(eye, target, out, up = UP) {
+  _lv.copy(eye).sub(target);
   // Work with a unit offset to stay precise at planetary distances.
-  _m.lookAt(_v.normalize(), new THREE.Vector3(0, 0, 0), Math.abs(_v.y) > 0.9999 ? new THREE.Vector3(0, 0, -1) : UP);
+  _lv.normalize();
+  let u = up;
+  if (Math.abs(_lv.dot(up)) > 0.9999) {
+    // looking straight along the up axis: any perpendicular will do
+    u = _lu.set(0, 0, -1);
+    if (Math.abs(up.z) > 0.9) u.set(1, 0, 0);
+    u.addScaledVector(up, -u.dot(up)).normalize();
+  }
+  _m.lookAt(_lv, _origin, u);
   return out.setFromRotationMatrix(_m);
 }

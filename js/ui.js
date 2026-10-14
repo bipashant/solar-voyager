@@ -1,6 +1,7 @@
 // DOM side of the app: panels, selects, the flight HUD and screen-space labels.
 import * as THREE from 'three';
 import { BODIES, SPEEDS, TRAVEL_MODES, TIME_RATES } from './data.js';
+import { DSO_GROUPS } from './deepsky-data.js';
 import { fmtDistance, fmtAU, fmtDuration, fmtLightTime, fmtSpeed, fmtFactor, fmtCompact, fmtSci, fmtLength, fmtTiny, fmtArc } from './format.js';
 
 const $ = (id) => document.getElementById(id);
@@ -19,10 +20,11 @@ export class UI {
     // Phones start in a calm layout: logo and View at the top, a collapsed Engage dock at the bottom.
     // Everything else is one switch away under View > Panels.
     const wide = window.innerWidth >= 720;
-    this.toggles = { orbits: true, labels: true, deepsky: true, constellations: false, starnames: false, curvature: false, cockpit: true, info: false, console: wide, clock: wide, zoom: wide };
+    this.toggles = { orbits: true, labels: true, deepsky: true, dso: true, constellations: false, starnames: false, curvature: false, cockpit: true, info: false, console: wide, clock: wide, zoom: wide };
     this.labelEls = new Map();
     this.featureEls = [];
     this.skyEls = { const: [], names: [] };
+    this.deepEls = [];
     this.lastText = 0;
     this.buildSelects();
     this.bindPanels();
@@ -37,6 +39,12 @@ export class UI {
     for (const [label, test] of groups) {
       const g = el('optgroup'); g.label = label;
       for (const b of BODIES.filter(test)) { const o = el('option', null, b.name); o.value = b.id; g.append(o); }
+      dest.append(g);
+    }
+    // galaxies, nebulae and star clusters, beyond the Solar System
+    for (const [label, kind] of DSO_GROUPS) {
+      const g = el('optgroup'); g.label = label;
+      for (const b of this.app.deepSky.objects.filter((o) => o.kind === kind)) { const o = el('option', null, b.name); o.value = b.id; g.append(o); }
       dest.append(g);
     }
     for (const [pid, pname] of Object.entries(PARENT_LABEL)) {
@@ -192,9 +200,12 @@ export class UI {
     if (now - (this.lastZoomText || 0) > 100) {
       this.lastZoomText = now;
       const focus = this.app.state.focus;
-      const alt = this.app.travel.active ? this.app.travel.remainingKm : Math.max(0, this.app.camPos.distanceTo(focus.pos) - focus.maxRadius);
+      const flying = this.app.travel.active;
+      const alt = flying ? this.app.travel.remainingKm
+        : Math.max(0, this.app.camPos.distanceTo(focus.pos) - (focus.deep ? 0 : focus.maxRadius));
       $('zoom-alt').textContent = fmtCompact(alt);
-      $('zoom-alt').title = this.app.travel.active ? 'Distance left to the destination' : `Height above ${focus.name}`;
+      $('zoom-alt').title = flying ? 'Distance left to the destination' : focus.deep ? `Distance from the centre of ${focus.name}` : `Height above ${focus.name}`;
+      $('zoom-alt-label').textContent = flying || !focus.deep ? 'Alt' : 'Dist';
     }
   }
 
@@ -218,6 +229,7 @@ export class UI {
     const count = Object.entries(this.toggles).filter(([k, v]) => v && document.querySelector(`.tog[data-toggle="${k}"]`)).length;
     $('view-count').textContent = count;
     if (key === 'orbits') this.app.system.showOrbits = on;
+    if (key === 'dso') this.app.deepSky.setEnabled(on);
     if (key === 'clock' || key === 'zoom') {
       document.body.classList.toggle(`no-${key}`, !on);
       this.panelRects = null;
@@ -232,7 +244,7 @@ export class UI {
     }
     if (key === 'curvature') {
       this.app.spacetime.setEnabled(on);
-      $('info-gr').hidden = !on;
+      $('info-gr').hidden = !on || !!this.inspect?.deep;
       this.refreshGR(true);
       if (on && this.curvatureHinted !== true && this.inspect) {
         this.curvatureHinted = true;
@@ -360,6 +372,8 @@ export class UI {
     const fw = $('info-features');
     fw.replaceChildren();
     $('info-features-wrap').hidden = feats.length === 0;
+    $('info-features-title').textContent = body.deep ? 'Highlights · tap to look' : 'Surface features · tap to look';
+    $('info-gr').hidden = !this.toggles.curvature || !!body.deep;
     for (const f of feats) {
       const c = el('button', 'chip feature', f.name);
       c.type = 'button';
@@ -395,20 +409,27 @@ export class UI {
     this.lastLive = now;
     const live = $('info-live');
     const rows = [];
-    const fromShip = Math.max(0, b.rel.length() - b.radius);
-    rows.push(['From your ship', fmtDistance(fromShip)]);
-    if (b.kind !== 'star') {
+    if (b.deep) {
       const fromSun = b.pos.length();
-      rows.push(['From the Sun', `${fmtDistance(fromSun)} · ${fmtAU(fromSun)}`]);
-      rows.push(['Sunlight travel time', fmtLightTime(fromSun)]);
+      rows.push([b.screen.inside ? 'From its centre' : 'From your ship', fmtDistance(b.rel.length())]);
+      rows.push([b.id === 'milkyway' ? 'Sun to its centre' : 'From the Sun', fmtDistance(fromSun)]);
+      rows.push(['Light from it left', `${fmtDuration(fromSun / 299792.458)} ago`]);
     } else {
-      rows.push(['Light to Earth', fmtLightTime(this.app.system.byId.earth.pos.length())]);
-    }
-    if (b.parent && b.kind === 'moon') rows.push([`From ${b.parent.name}`, fmtDistance(b.pos.distanceTo(b.parent.pos))]);
-    if (b.kind !== 'star') {
-      const vis = this.app.system.sunVisibility(b.pos);
-      const by = this.app.system.eclipser;
-      if (vis < 0.98 && by) rows.push(['Sunlight', vis < 0.03 ? `Eclipsed by ${by.name}` : `${Math.round(vis * 100)}%, partly behind ${by.name}`]);
+      const fromShip = Math.max(0, b.rel.length() - b.radius);
+      rows.push(['From your ship', fmtDistance(fromShip)]);
+      if (b.kind !== 'star') {
+        const fromSun = b.pos.length();
+        rows.push(['From the Sun', `${fmtDistance(fromSun)} · ${fmtAU(fromSun)}`]);
+        rows.push(['Sunlight travel time', fmtLightTime(fromSun)]);
+      } else {
+        rows.push(['Light to Earth', fmtLightTime(this.app.system.byId.earth.pos.length())]);
+      }
+      if (b.parent && b.kind === 'moon') rows.push([`From ${b.parent.name}`, fmtDistance(b.pos.distanceTo(b.parent.pos))]);
+      if (b.kind !== 'star') {
+        const vis = this.app.system.sunVisibility(b.pos);
+        const by = this.app.system.eclipser;
+        if (vis < 0.98 && by) rows.push(['Sunlight', vis < 0.03 ? `Eclipsed by ${by.name}` : `${Math.round(vis * 100)}%, partly behind ${by.name}`]);
+      }
     }
     if (live.childElementCount !== rows.length * 2) {
       live.replaceChildren();
@@ -423,7 +444,7 @@ export class UI {
 
   // Real general-relativity numbers for the inspected body, and how the drawing is scaled.
   refreshGR(force) {
-    if (!this.toggles.curvature || !this.inspect) return;
+    if (!this.toggles.curvature || !this.inspect || this.inspect.deep) return;
     const st = this.app.spacetime;
     const b = this.inspect;
     if (force || this.grBody !== b) {
@@ -567,6 +588,75 @@ export class UI {
     }
   }
 
+  ensureDeepLabels(objects) {
+    const layer = $('labels');
+    for (const o of objects) {
+      const e = el('div', `lbl dso ${o.kind}`, o.name);
+      e.style.setProperty('--c', o.data.color);
+      e.addEventListener('click', (ev) => { ev.stopPropagation(); this.app.setDestination(o.id); });
+      e.addEventListener('dblclick', (ev) => { ev.stopPropagation(); this.app.setDestination(o.id); this.app.engage(); });
+      e.style.display = 'none';
+      layer.append(e);
+      this.deepEls.push({ o, e, w: 0, shown: false });
+    }
+    // the Sun, seen as a star from deep space
+    const e = el('div', 'lbl star sunfar', 'Sun');
+    e.addEventListener('click', (ev) => { ev.stopPropagation(); this.app.setDestination('sun'); });
+    e.addEventListener('dblclick', (ev) => { ev.stopPropagation(); this.app.setDestination('sun'); this.app.engage(); });
+    e.style.display = 'none';
+    layer.append(e);
+    this.sunFar = { e, shown: false };
+  }
+
+  // Labels of galaxies, nebulae and clusters, fitted into the space the planet labels left.
+  updateDeepLabels(viewport, placed) {
+    const app = this.app;
+    const { focus, destination } = app.state;
+    const target = app.travel.active ? app.travel.target : destination;
+    const hits = (r) => placed.some((p) => r[0] < p[2] && r[2] > p[0] && r[1] < p[3] && r[3] > p[1]);
+    const discs = app.solarVisible ? app.system.bodies.filter((b) => b.screen.onScreen && b.screen.r > 3) : [];
+    const items = [];
+    for (const rec of this.deepEls) {
+      const { o } = rec;
+      const sc = o.screen;
+      const key = o === target || o === focus;
+      let show = this.toggles.labels && (this.toggles.dso || key) && o.group.visible && sc.onScreen && !sc.inside;
+      if (show && sc.r > Math.min(viewport.x, viewport.y) * 0.22) show = false;
+      if (show && discs.some((b) => Math.hypot(sc.x - b.screen.x, sc.y - b.screen.y) < b.screen.r * (b.kind === 'star' ? 2 : 1.05))) show = false;
+      if (show) items.push({ rec, pri: o === target ? 0 : o === focus ? 1 : 2 - Math.min(1, sc.r / 400) });
+      else if (rec.shown) { rec.e.style.display = 'none'; rec.shown = false; }
+    }
+    items.sort((a, b) => a.pri - b.pri);
+    for (const { rec, pri } of items) {
+      const sc = rec.o.screen;
+      if (!rec.shown) { rec.e.style.display = ''; rec.shown = true; }
+      if (!rec.w) rec.w = rec.e.offsetWidth || rec.o.name.length * 7 + 24;
+      const x = sc.x + Math.max(sc.r * 0.7, 4) + 2;
+      let y = sc.y - 9, rect = null;
+      for (const dy of [0, 16, -16]) {
+        const r = [x, y + dy, x + rec.w, y + dy + 17];
+        if (!hits(r)) { rect = r; y += dy; break; }
+      }
+      if (!rect) {
+        if (pri > 0) { rec.e.style.display = 'none'; rec.shown = false; continue; }
+        rect = [x, y, x + rec.w, y + 17];
+      }
+      placed.push(rect);
+      rec.e.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+      rec.e.classList.toggle('dest', rec.o === target && rec.o !== focus);
+    }
+    // the Sun as a star, once the planets are out of sight
+    const ss = app.deepSky.sunScreen;
+    const sf = this.sunFar;
+    // (the Milky Way labels the Sun among its own highlights)
+    const showSun = this.toggles.labels && !app.solarVisible && ss.onScreen && !(focus.data.features || []).some((f) => f.sun);
+    if (showSun) {
+      if (!sf.shown) { sf.e.style.display = ''; sf.shown = true; }
+      sf.e.style.transform = `translate3d(${(ss.x + 6).toFixed(1)}px, ${(ss.y - 9).toFixed(1)}px, 0)`;
+      sf.e.classList.toggle('dest', target === app.system.byId.sun);
+    } else if (sf.shown) { sf.e.style.display = 'none'; sf.shown = false; }
+  }
+
   buildFeatureLabels() {
     for (const f of this.featureEls) f.e.remove();
     this.featureEls = [];
@@ -581,6 +671,7 @@ export class UI {
       const e = el('div', 'lbl feature', f.name); e.style.display = 'none'; layer.append(e);
       this.featureEls.push({ e, f, ring: true });
     }
+    if (b.deep) for (const item of this.featureEls) item.deep = true;
   }
 
   updateLabels(viewport) {
@@ -605,7 +696,7 @@ export class UI {
       .filter((o, i, arr) => o && arr.indexOf(o) === i && o.screen.r > 6);
     for (const [b, rec] of this.labelEls) {
       const sc = b.screen;
-      let show = on && sc.onScreen;
+      let show = on && sc.onScreen && app.solarVisible;
       let pri = b === destination ? 0 : b === focus ? 1 : b.kind === 'star' ? 2 : b.kind === 'planet' ? 3 : b.kind === 'dwarf' ? 4 : 5;
       if (show && b.kind === 'moon') {
         const par = b.parent.screen;
@@ -648,6 +739,7 @@ export class UI {
       rec.e.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
       rec.e.classList.toggle('dest', b === destination && b !== focus);
     }
+    this.updateDeepLabels(viewport, placed);
     this.updateFeatureLabels(viewport);
     this.updateSkyLabels(viewport);
   }
@@ -655,13 +747,15 @@ export class UI {
   updateFeatureLabels(viewport) {
     const app = this.app;
     const b = app.state.focus;
-    const show = this.toggles.labels && b && b.screen.r > 150 && !app.travel.active;
+    const show = this.toggles.labels && b && (b.screen.r > 150 || b.screen.inside) && !app.travel.active;
     const camPos = app.camPos;
     const p = new THREE.Vector3(), n = new THREE.Vector3(), v = new THREE.Vector3();
     for (const item of this.featureEls) {
       let vis = false;
       if (show) {
-        if (item.ring) {
+        if (item.deep) {
+          if (item.f.p) { app.deepSky.worldOf(b, item.f.p, p); vis = true; }
+        } else if (item.ring) {
           // place ring labels along the side of the ring facing the camera
           const pole = n.set(0, 1, 0).applyQuaternion(b.quat);
           const toCam = v.copy(camPos).sub(b.pos);
@@ -692,10 +786,12 @@ export class UI {
   updateSkyLabels(viewport) {
     const sky = this.app.sky;
     const v = new THREE.Vector3();
-    const discs = this.app.system.bodies.filter((b) => b.screen.onScreen && b.screen.r > 3);
+    const solar = this.app.solarVisible;
+    const discs = solar ? this.app.system.bodies.filter((b) => b.screen.onScreen && b.screen.r > 3) : [];
     const glare = this.app.system.byId.sun.screen;
     const blocked = (s) => discs.some((b) => Math.hypot(s.x - b.screen.x, s.y - b.screen.y) < b.screen.r * (b.kind === 'star' ? 2.2 : 1.05))
-      || (glare.onScreen && Math.hypot(s.x - glare.x, s.y - glare.y) < 70);
+      || (solar && glare.onScreen && Math.hypot(s.x - glare.x, s.y - glare.y) < 70);
+    const near = sky.starFade > 0.5; // star names and figures only mean something near home
     const place = (list, on, dx, dy) => {
       for (const it of list) {
         const s = on ? sky.project(it.dir, viewport, v) : null;
@@ -705,8 +801,8 @@ export class UI {
         } else it.e.style.display = 'none';
       }
     };
-    place(this.skyEls.const, this.toggles.deepsky && this.toggles.constellations, -30, -6);
-    place(this.skyEls.names, this.toggles.deepsky && this.toggles.starnames, 7, -5);
+    place(this.skyEls.const, near && this.toggles.deepsky && this.toggles.constellations, -30, -6);
+    place(this.skyEls.names, near && this.toggles.deepsky && this.toggles.starnames, 7, -5);
   }
 }
 

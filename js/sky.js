@@ -114,6 +114,8 @@ export class Sky {
     this.scene.add(this.lines);
 
     this.namedStars = NAMED_STARS.map((name) => STAR_BY_NAME[name]).filter(Boolean);
+    this.starFade = 1;
+    this.milkyFade = 1;
   }
 
   async loadMilkyWay() {
@@ -130,6 +132,18 @@ export class Sky {
   }
 
   setConstellations(on) { this.lines.visible = on; }
+
+  // Fade the sky as seen from the Sun as the ship travels away from it: the bright stars and their
+  // constellation figures are our neighbours, gone within a few hundred light-years; the Milky Way panorama
+  // is our galaxy seen from inside, replaced by the 3D Milky Way once we are tens of thousands out.
+  setDistance(ly) {
+    const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    this.starFade = 1 - smooth(Math.log10(30), Math.log10(600), Math.log10(Math.max(ly, 1e-6)));
+    this.milkyFade = 1 - smooth(6000, 50000, ly);
+    this.milkyMat.uniforms.uBright.value = 1.25 * this.milkyFade;
+    this.starMat.uniforms.uBright.value = this.starFade;
+    this.lineMat.uniforms.uOpacity.value = 0.32 * this.starFade;
+  }
 
   // The whole background: Milky Way, stars and constellation figures.
   setVisible(on) { this.scene.visible = on; }
