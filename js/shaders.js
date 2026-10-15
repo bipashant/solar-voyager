@@ -1091,12 +1091,191 @@ void main(){
 `;
 
 // ---------------------------------------------------------------- deep-sky objects
-// Soft particles sized in the object's own units, so a nebula keeps its true angular size and surface
-// brightness from any distance. Sprites smaller than uMinPx keep their total light (dimmer, not
-// smaller); sprites that would fill the view fade out as the camera flies through them. STAR points
-// stop growing at uCapPx so stars stay sharp up close; FIXED points are a constant size (the Sun seen
-// from deep space).
-export const DSO_VERT = /* glsl */`
+// Galaxies and nebulae are ray-marched through a baked 3D texture (js/deepsky-bake.js): RGB is glowing
+// gas and starlight, A is dust. All values are stored as cube roots. The march runs in the object's own
+// frame, measured in radii, so it is just as precise for Andromeda as for the Ring Nebula.
+//
+// Fine structure below the texture's resolution comes from a tiling noise texture: the lookup is first
+// nudged by a low-frequency noise (domain warping, which turns round blobs into wisps), then the density
+// is multiplied by log-normal turbulence, exp(s·z − s²/2), which keeps the average brightness while
+// adding contrast at every scale, the way turbulent interstellar gas is distributed. uRidge blends from
+// billowy clouds to thin filaments.
+export const VOL_VERT = /* glsl */`
+uniform vec3 uBoxMin;
+uniform vec3 uBoxSize;
+varying vec3 vLocal;
+void main(){
+  vLocal = uBoxMin + position * uBoxSize;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(vLocal, 1.0);
+}
+`;
+
+export const VOL_FRAG = /* glsl */`
+precision highp sampler3D;
+uniform sampler3D uVol;
+uniform sampler3D uDet;
+uniform sampler3D uNoise;
+uniform vec3 uBoxMin;
+uniform vec3 uBoxSize;
+uniform vec3 uDetMin;
+uniform vec3 uDetSize;
+uniform vec3 uCam;
+uniform float uVoxel;
+uniform float uDetVoxel;
+uniform float uHasDet;
+uniform float uEm;
+uniform float uExt;
+uniform float uDetEm;
+uniform float uDetExt;
+uniform float uPix;
+uniform float uGrow;
+uniform float uMaxIter;
+uniform float uDetail;
+uniform float uDustDetail;
+uniform float uWarp;
+uniform float uNoiseFreq;
+uniform float uRidge;
+uniform float uDustKnee;
+uniform vec3 uExtRGB;
+varying vec3 vLocal;
+
+// white-noise start offsets per pixel, so the steps dither instead of banding
+float hash12(vec2 p){
+  uvec2 q = uvec2(ivec2(p)) * uvec2(1597334673u, 3812015801u);
+  uint n = (q.x ^ q.y) * 1597334673u;
+  return float(n) * (1.0 / 4294967296.0);
+}
+
+// Detail below the baked resolution at noise coordinates q: a warp of the lookup, and log-normal
+// multipliers for emission and dust that keep their average.
+void detailAt(vec3 q, float fine, float dustK, out vec3 warp, out float mE, out float mD){
+  vec4 a = textureLod(uNoise, q, 0.0);
+  warp = (a.xyz - 0.5) * uWarp;
+  vec4 b = textureLod(uNoise, q * 2.83 + vec3(0.37, 0.71, 0.13), 0.0);
+  // fractal noise, octaves at 13, 24, 37 and 68 cycles per tile with falling amplitude
+  float zf = ((a.z - 0.5) + 0.65 * (a.w - 0.5) + 0.48 * (b.z - 0.5) + 0.3 * (b.w - 0.5)) / 0.191;
+  // ridges: thin sheets where one octave crosses its middle value
+  float zr = (0.244 - abs(2.0 * b.y - 1.0)) / 0.169;
+  float z = mix(zf, zr, uRidge);
+  float s = uDetail * fine;
+  mE = exp(clamp(s * z - 0.5 * s * s, -6.0, 4.0));
+  float zd = ((b.x - 0.5) + 0.7 * (b.y - 0.5) + 0.45 * (a.w - 0.5)) / 0.189;
+  float sd = uDustDetail * fine * dustK;
+  mD = exp(clamp(sd * zd - 0.5 * sd * sd, -6.0, 4.0));
+}
+
+void main(){
+  vec3 rd = normalize(vLocal - uCam);
+  vec3 inv = 1.0 / rd;
+  vec3 t0 = (uBoxMin - uCam) * inv, t1 = (uBoxMin + uBoxSize - uCam) * inv;
+  vec3 tmn = min(t0, t1), tmx = max(t0, t1);
+  float ta = max(max(max(tmn.x, tmn.y), tmn.z), 0.0);
+  float tb = min(min(tmx.x, tmx.y), tmx.z);
+  if (tb <= ta) discard;
+  vec3 invSize = 1.0 / uBoxSize;
+  vec3 invDet = 1.0 / uDetSize;
+  float jit = hash12(gl_FragCoord.xy);
+  float t = ta + max(uVoxel * 0.7, ta * uGrow) * jit;
+  vec3 E = vec3(0.0);
+  vec3 T = vec3(1.0);
+  float nIter = 0.0, nFetch = 0.0;
+  for (int i = 0; i < 640; i++){
+    if (t >= tb || float(i) >= uMaxIter) break;
+    nIter += 1.0;
+    nFetch += 1.0;
+    vec3 p = uCam + rd * t;
+    vec3 uvw = (p - uBoxMin) * invSize;
+    // detail volume: weight 1 inside its box, fading to 0 over its outer eighth
+    float wD = 0.0;
+    vec3 uvwD = (p - uDetMin) * invDet;
+    if (uHasDet > 0.5) {
+      vec3 e = min(uvwD, 1.0 - uvwD);
+      wD = smoothstep(0.0, 0.12, min(min(e.x, e.y), e.z));
+    }
+    float vox = wD > 0.0 ? uDetVoxel : uVoxel;
+    // steps of most of a voxel near the camera, growing with distance where a pixel covers more
+    float dt = max(vox * 0.7, t * uGrow);
+    // skip empty space a few voxels at a time, using a coarse mip level
+    vec4 c = textureLod(uVol, uvw, 2.0);
+    if (wD == 0.0 && c.r + c.g + c.b + c.a < 0.012) { t += max(dt, uVoxel * 2.0); continue; }
+    // blur only where a pixel is wider than a voxel (distant objects)
+    float lod = max(0.0, log2(t * uPix / uVoxel));
+    float fine = clamp(1.6 - 0.6 * lod, 0.0, 1.0);
+    vec3 warp = vec3(0.0);
+    float mE = 1.0, mD = 1.0;
+    if (uDetail + uDustDetail > 0.0 && fine > 0.0) {
+      if (wD < 1.0) { nFetch += 2.0; detailAt(p * uNoiseFreq, fine, 1.0, warp, mE, mD); }
+      if (wD > 0.0) {
+        // in a close-up the noise is scaled down with the voxels, so it keeps adding detail
+        // finer than the volume holds instead of large blotches; dark clouds get ragged edges
+        // but stay solid inside
+        nFetch += 2.0;
+        float ds = clamp(uVoxel / uDetVoxel, 1.0, 16.0);
+        vec3 w2; float e2, d2;
+        detailAt(p * (uNoiseFreq * ds), fine, 0.5, w2, e2, d2);
+        warp = mix(warp, w2 / ds, wD); mE = mix(mE, e2, wD); mD = mix(mD, d2, wD);
+      }
+    }
+    vec3 em = vec3(0.0);
+    float ex = 0.0;
+    if (wD < 1.0) {
+      nFetch += 1.0;
+      vec4 v = textureLod(uVol, uvw + warp * invSize, lod);
+      em = v.rgb * v.rgb * v.rgb * uEm * (1.0 - wD);
+      ex = v.a * v.a * v.a * uExt * (1.0 - wD);
+    }
+    if (wD > 0.0) {
+      nFetch += 1.0;
+      vec4 v = textureLod(uDet, uvwD + warp * invDet, 0.0);
+      em += v.rgb * v.rgb * v.rgb * uDetEm * wD;
+      ex += v.a * v.a * v.a * uDetExt * wD;
+    }
+    em *= mE;
+    ex *= mD;
+    // thin the faint fringes of dark clouds so their edges read sharp, as dense globules do
+    ex = ex * ex / (ex + uDustKnee + 1e-12);
+    E += T * em * dt;
+    T *= exp(-ex * dt * uExtRGB);
+    t += dt;
+    if (T.r + T.g + T.b < 0.006) break;
+  }
+  gl_FragColor = vec4(E, dot(T, vec3(0.299, 0.587, 0.114)));
+  #if defined(COST)
+    gl_FragColor = vec4(nIter, nFetch, 1.0, 1.0);
+  #endif
+}
+`;
+
+// Adds the volume pass to the screen: emission through a soft photographic shoulder, then whatever was
+// already drawn (the sky) dimmed by the transmittance in alpha.
+export const VOL_COMPOSITE_VERT = /* glsl */`
+varying vec2 vUv;
+void main(){
+  vUv = position.xy * 0.5 + 0.5;
+  gl_Position = vec4(position.xy, 0.0, 1.0);
+}
+`;
+
+export const VOL_COMPOSITE_FRAG = /* glsl */`
+uniform sampler2D uTex;
+uniform float uExposure;
+uniform float uAuto;
+varying vec2 vUv;
+void main(){
+  vec4 s = texture2D(uTex, vUv);
+  // the smallest mip level is the average of the frame: inside a bright nebula, stop down like a camera
+  float avg = dot(textureLod(uTex, vec2(0.5), 16.0).rgb, vec3(0.3, 0.5, 0.2));
+  float k = uExposure * mix(1.0, min(1.0, 0.3 / max(avg, 1e-4)), uAuto);
+  vec3 c = 1.0 - exp(-max(s.rgb, 0.0) * k);
+  gl_FragColor = vec4(c, clamp(s.a, 0.0, 1.0));
+}
+`;
+
+// Stars: points sized in the object's units that stop growing at a few pixels, so clusters stay crisp up
+// close. Each star is dimmed and reddened by the dust between it and the camera, marched through the same
+// volume. FIXED points are a constant size (the Sun seen from deep space).
+export const DSO_STAR_VERT = /* glsl */`
+precision highp sampler3D;
 attribute vec3 aColor;
 attribute float aSize;
 attribute float aAlpha;
@@ -1104,53 +1283,78 @@ uniform float uScale;
 uniform float uPx;
 uniform float uGain;
 uniform float uMinPx;
-uniform float uMaxPx;
 uniform float uCapPx;
+#if defined(ATTEN)
+uniform sampler3D uVol;
+uniform vec3 uBoxMin;
+uniform vec3 uBoxSize;
+uniform vec3 uCam;
+uniform float uExt;
+uniform vec3 uExtRGB;
+#endif
 varying vec3 vColor;
+varying float vHalo;
 void main(){
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   float d = -mv.z;
   if (d <= 0.0) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   float a = aAlpha * uGain;
+  vHalo = 0.0;
   #if defined(FIXED)
     float s = aSize;
   #else
-    float px = aSize * uScale * uPx / d;
-    #if defined(STAR)
-      px *= 2.5;
-      // brighter stars get a bigger glint
-      float s = clamp(px, uMinPx, uCapPx * (0.6 + 0.5 * aAlpha));
-      a *= min(1.0, (px * px) / (s * s));
-    #else
-      float s = max(px, uMinPx);
-      a *= (px * px) / (s * s);
-      a *= 1.0 - smoothstep(uMaxPx * 0.3, uMaxPx, s);
-      s = min(s, uMaxPx);
-    #endif
+    float px = aSize * uScale * uPx / d * 2.5;
+    float s = clamp(px, uMinPx, uCapPx * (0.6 + 0.5 * aAlpha));
+    a *= min(1.0, (px * px) / (s * s));
+    // the brightest stars get a soft halo and faint diffraction spikes, as in a telescope's photographs
+    vHalo = clamp((aAlpha - 1.3) / 2.0, 0.0, 1.0) * clamp(a, 0.0, 1.0);
+    s *= 1.0 + 2.5 * vHalo;
   #endif
-  if (a < 2e-4) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  vColor = aColor * a;
+  vec3 att = vec3(1.0);
+  #if defined(ATTEN)
+  if (uExt > 0.0) {
+    vec3 rd = uCam - position;
+    float L = length(rd);
+    rd /= L;
+    vec3 inv = 1.0 / rd;
+    vec3 t0 = (uBoxMin - position) * inv, t1 = (uBoxMin + uBoxSize - position) * inv;
+    vec3 tmn = min(t0, t1), tmx = max(t0, t1);
+    float ta = max(max(max(tmn.x, tmn.y), tmn.z), 0.0);
+    float tb = min(min(min(tmx.x, tmx.y), tmx.z), L);
+    if (tb > ta) {
+      float dt = (tb - ta) / 24.0;
+      float tau = 0.0;
+      for (int i = 0; i < 24; i++) {
+        vec3 q = position + rd * (ta + dt * (float(i) + 0.5));
+        float e = textureLod(uVol, (q - uBoxMin) / uBoxSize, 0.0).a;
+        tau += e * e * e;
+      }
+      att = exp(-tau * uExt * dt * uExtRGB);
+    }
+  }
+  #endif
+  vColor = aColor * a * att;
+  if (max(vColor.r, max(vColor.g, vColor.b)) < 2e-4) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   gl_PointSize = s;
   gl_Position = projectionMatrix * mv;
 }
 `;
 
-export const DSO_FRAG = /* glsl */`
+export const DSO_STAR_FRAG = /* glsl */`
 varying vec3 vColor;
+varying float vHalo;
 void main(){
   vec2 c = gl_PointCoord * 2.0 - 1.0;
   float r2 = dot(c, c);
   if (r2 > 1.0) discard;
-  #if defined(STAR)
-    float g = exp(-r2 * 7.0) + 0.15 * exp(-r2 * 1.8);
-  #else
-    float g = exp(-r2 * 4.0) - 0.0183;
-  #endif
-  #if defined(DUST)
-    // multiplied into what is behind: dst * (1 - src)
-    gl_FragColor = vec4(min(vColor * g, vec3(0.97)), 1.0);
-  #else
-    gl_FragColor = vec4(vColor * g, 1.0);
-  #endif
+  float k = 1.0 + 2.5 * vHalo; // the sprite grew by this much for the halo; keep the core the same size
+  float g = exp(-r2 * 7.0 * k * k) + 0.15 * exp(-r2 * 1.8 * k * k);
+  if (vHalo > 0.0) {
+    g += vHalo * 0.1 * exp(-r2 * 3.0);
+    vec2 ac = abs(c);
+    float spikes = exp(-ac.x * 60.0) * (1.0 - ac.y) + exp(-ac.y * 60.0) * (1.0 - ac.x);
+    g += vHalo * 0.35 * spikes * (1.0 - smoothstep(0.6, 1.0, sqrt(r2)));
+  }
+  gl_FragColor = vec4(vColor * g, 1.0);
 }
 `;

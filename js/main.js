@@ -457,6 +457,7 @@ Promise.allSettled(jobs).then((results) => {
 // ---------------------------------------------------------------- frame loop
 let last = performance.now();
 const tmpDir = new THREE.Vector3();
+const lookPoint = new THREE.Vector3();
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1);
   last = now;
@@ -490,9 +491,12 @@ function frame(now) {
   deep.update(camPos, camQuat, viewport, camera.fov, {
     focus: state.focus, target: travel.active ? travel.target : state.destination,
     mwFade: smooth(6000, 50000, dLy), sunStar: smooth(1e11, SOLAR_HIDE_KM, dSun),
+    // the point the camera orbits, for close-up detail
+    look: !travel.active && state.focus.deep ? lookPoint.copy(state.focus.pos).add(rig.pivot) : null,
   });
-  // build the deep-sky models a few at a time once the planets are loaded, the next destination first
-  if (!deep.allBuilt && ui.loaded && !travel.active) deep.buildNext(state.destination);
+  // the deep-sky models are built and baked in the background once the planets have loaded
+  if (ui.loaded) deep.start();
+  deep.setFrameTime(dt);
 
   const earth = system.byId.earth;
   if (earth.surface.uniforms.uCloudShift) {
@@ -520,7 +524,7 @@ function frame(now) {
   sky.sync(camera);
   renderer.clear();
   if (sky.scene.visible) renderer.render(sky.scene, sky.camera);
-  renderer.render(deep.scene, deep.camera);
+  deep.render(renderer);
   renderer.clearDepth();
   if (app.solarVisible) renderer.render(scene, camera);
   if (streaks.visible) renderer.render(fxScene, camera);

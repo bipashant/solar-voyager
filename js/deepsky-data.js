@@ -164,7 +164,7 @@ export const DSO = [
     blurb: 'Four times the size of the Orion Nebula and full of the Galaxy\'s most massive stars. Eta Carinae, a pair of stars of about 100 Suns, nearly blew itself apart in 1843 and threw off the Homunculus Nebula.',
     features: [
       { name: 'Eta Carinae and the Homunculus', p: [0, 0, 0], view: 0.012 },
-      { name: 'Keyhole Nebula', p: [-0.03, 0.045, 0.02], view: 0.05 },
+      { name: 'Keyhole Nebula', p: [-0.03, 0.04, 0.03], view: 0.07 },
       { name: 'Trumpler 14 (star cluster)', p: [0.17, 0.17, 0.02], view: 0.08 },
       { name: 'Mystic Mountain', p: [0.1, -0.36, 0], view: 0.05 },
     ],
@@ -197,7 +197,7 @@ export const DSO = [
     facts: [['Type', 'Planetary nebula'], ['Catalogue', 'NGC 7293'], ['Distance', '655 light-years'],
       ['Size', 'about 5.7 light-years'], ['Age', 'about 10,600 years'], ['Constellation', 'Aquarius'], ['Brightness', 'magnitude 7.6']],
     blurb: 'One of the nearest planetary nebulae, nicknamed the Eye of God. Its rings hold some 20,000 comet-shaped knots, each about the size of our Solar System, with tails blown outwards by the dying star.',
-    features: [{ name: 'Cometary knots', p: [0.32, 0.2, 0], view: 0.08 }, { name: 'White dwarf', p: [0, 0, 0], view: 0.1 }],
+    features: [{ name: 'Cometary knots', p: [0.32, 0.2, 0], view: 0.18 }, { name: 'White dwarf', p: [0, 0, 0], view: 0.1 }],
   },
   {
     id: 'horsehead', name: 'Horsehead Nebula', kind: 'nebula', model: 'horsehead',
@@ -207,7 +207,7 @@ export const DSO = [
     facts: [['Type', 'Dark nebula'], ['Catalogue', 'Barnard 33 · in IC 434'], ['Distance', '1,375 light-years'],
       ['Size of the head', 'about 3.5 light-years'], ['Constellation', 'Orion']],
     blurb: 'A cold cloud of dust in the shape of a horse\'s head, seen in silhouette against glowing hydrogen lit by the star Sigma Orionis. Its edges are slowly evaporating; it may last another 5 million years.',
-    features: [{ name: 'The head', p: [0.0, 0.08, 0], view: 0.5 }, { name: 'NGC 2023 (reflection nebula)', p: [-0.55, -0.55, 0.2], view: 0.3 }],
+    features: [{ name: 'The head', p: [-0.02, 0.14, 0], view: 1.0 }, { name: 'NGC 2023 (reflection nebula)', p: [-0.55, -0.55, 0.2], view: 0.3 }],
   },
   {
     id: 'veil', name: 'Veil Nebula', kind: 'nebula', model: 'veil',

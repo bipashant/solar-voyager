@@ -91,11 +91,29 @@ function ridge(x, y, z, oct = 4, s = 0) {
 
 // ---------------------------------------------------------------- particle builder
 export class Model {
-  constructor(seed, ctx) {
-    this.rnd = mulberry(seed);
+  // k: how densely gas and dust are sampled. Structure (knot positions, filament paths, stars) comes from
+  // the main random stream; the many particles that fill it in come from a second stream inside gas()
+  // blocks, so a model built with k = 8 has the same structure as one built with k = 1, just 8 times as
+  // many (and 8 times fainter) gas particles.
+  constructor(seed, ctx, k = 1) {
+    this.main = mulberry(seed);
+    this.sample = mulberry(seed ^ 0x5bd1e995);
+    this.rnd = this.main;
     this.ctx = ctx;
+    this.k = k;
+    this.w = 1;
     this.layers = { glow: [], dust: [], star: [] };
   }
+
+  // Runs fn with the sampling stream and gas weight 1/k; loops inside size themselves with n().
+  gas(fn) {
+    const rnd = this.rnd, w = this.w;
+    this.rnd = this.sample;
+    this.w = 1 / this.k;
+    try { fn(); } finally { this.rnd = rnd; this.w = w; }
+  }
+
+  n(count) { return Math.round(count * this.k); }
 
   r() { return this.rnd(); }
   u(a, b) { return a + (b - a) * this.rnd(); }
@@ -119,18 +137,26 @@ export class Model {
     return mix(STAR_TEMPS[i], STAR_TEMPS[i + 1], t - i);
   }
 
-  glow(x, y, z, c, size, a) { this.layers.glow.push(x, y, z, c[0], c[1], c[2], size, a); }
-  dust(x, y, z, c, size, a) { this.layers.dust.push(x, y, z, c[0], c[1], c[2], size, a); }
+  // Glow: emission, a = peak brightness. Dust: a = peak absorption, stored as optical depth so that many
+  // faint particles add up to the same darkness as a few dense ones. Stars: point sprites.
+  glow(x, y, z, c, size, a) { this.layers.glow.push(x, y, z, c[0], c[1], c[2], size, a * this.w); }
+  dust(x, y, z, c, size, a) {
+    const tau = -Math.log(1 - Math.min(0.97, 0.693 * a));
+    this.layers.dust.push(x, y, z, c[0], c[1], c[2], size, tau * this.w);
+  }
   star(x, y, z, c, size, a) { this.layers.star.push(x, y, z, c[0], c[1], c[2], size, a); }
 
   // Rejection-sample n points from density(x, y, z) in [0, 1] inside a box of half-sizes (bx, by, bz).
   volume(n, bx, by, bz, density, emit, cx = 0, cy = 0, cz = 0) {
     let got = 0;
-    for (let tries = 0; got < n && tries < n * 60; tries++) {
-      const x = cx + (2 * this.rnd() - 1) * bx, y = cy + (2 * this.rnd() - 1) * by, z = cz + (2 * this.rnd() - 1) * bz;
-      const d = density(x, y, z);
-      if (d > 0 && this.rnd() < d) { emit(x, y, z, d); got++; }
-    }
+    this.gas(() => {
+      const N = this.n(n);
+      for (let tries = 0; got < N && tries < N * 60; tries++) {
+        const x = cx + (2 * this.rnd() - 1) * bx, y = cy + (2 * this.rnd() - 1) * by, z = cz + (2 * this.rnd() - 1) * bz;
+        const d = density(x, y, z);
+        if (d > 0 && this.rnd() < d) { emit(x, y, z, d); got++; }
+      }
+    });
     return got;
   }
 
@@ -140,9 +166,10 @@ export class Model {
     for (const [name, arr] of Object.entries(this.layers)) {
       const n = arr.length / 8;
       const order = new Uint32Array(n);
+      const rnd = mulberry(0x9e3779b9 ^ n);
       for (let i = 0; i < n; i++) order[i] = i;
       for (let i = n - 1; i > 0; i--) {
-        const j = Math.floor(this.rnd() * (i + 1));
+        const j = Math.floor(rnd() * (i + 1));
         const t = order[i]; order[i] = order[j]; order[j] = t;
       }
       const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), size = new Float32Array(n), alpha = new Float32Array(n);
@@ -190,19 +217,19 @@ function expDisc(m, scale, rmax) {
 
 function ellipsoid(m, o) {
   const p = Object.assign({ a: 0.1, rmax: 1, q: 0.85, q2: 1, n: 16000, nStars: 5000, col: COL.old, c: [0, 0, 0], scale: 1,
-    bright: 1, sizeK: 0.3, cool: 0.62 }, o);
+    bright: 1, sizeK: 0.3, cool: 0.62, starSize: 0.0008 }, o);
   const k = p.scale;
-  for (let i = 0; i < p.n; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(p.n); i++) {
     const r = hernquist(m, p.a, p.rmax);
     const [dx, dy, dz] = m.dir();
     const col = m.jitter(mix(p.col, COL.disc, smooth(p.rmax * 0.5, 0, r) * 0.25), 0.1);
     m.glow(p.c[0] + dx * r * k, p.c[1] + dy * r * p.q * k, p.c[2] + dz * r * p.q2 * k, col,
       Math.min(0.018 + p.sizeK * r, 0.2) * k, 0.3 * p.bright);
-  }
+  } });
   for (let i = 0; i < p.nStars; i++) {
     const r = hernquist(m, p.a * 1.3, p.rmax);
     const [dx, dy, dz] = m.dir();
-    m.star(p.c[0] + dx * r * k, p.c[1] + dy * r * p.q * k, p.c[2] + dz * r * p.q2 * k, m.starColor(p.cool), 0.0025 * k, 0.45 * p.bright);
+    m.star(p.c[0] + dx * r * k, p.c[1] + dy * r * p.q * k, p.c[2] + dz * r * p.q2 * k, m.starColor(p.cool), p.starSize * k, 0.45 * p.bright);
   }
 }
 
@@ -227,15 +254,21 @@ function spiral(m, o) {
     frags.push({ phase: m.r() * TAU, ra, rb: ra + 0.12 + m.r() * 0.22 });
   }
   const armR = () => p.r0 * 0.9 + expDisc(m, p.scale * 0.85, p.rmax * p.armExt - p.r0 * 0.9);
-  // a point on arm j at radius r, pushed dr off its centre line
+  // a point on arm j at radius r, pushed dr off its centre line; tw tapers the arm's far end (and both
+  // ends of a fragment) so arms fade out rather than stop
+  let tw = 1;
+  const rEnd = p.rmax * p.armExt;
   const onArm = (j, r, dr, y) => {
     if (j >= p.arms) {
       const f = frags[j - p.arms];
-      r = f.ra + ((r * 7.3) % 1) * (f.rb - f.ra);
+      const u = (r * 7.3) % 1;
+      tw = Math.sqrt(Math.sin(Math.PI * u));
+      r = f.ra + u * (f.rb - f.ra);
       const th = f.phase + k * Math.log(r / p.r0);
       const rr = Math.max(0.004, r + dr);
       return [rr * Math.cos(th), y, rr * Math.sin(th)];
     }
+    tw = smooth(rEnd, rEnd * 0.72, r);
     const th = armAt(j, r) + floccAt(r, j);
     const rr = Math.max(0.004, r + dr);
     return [rr * Math.cos(th), y, rr * Math.sin(th)];
@@ -244,50 +277,51 @@ function spiral(m, o) {
   const barCos = Math.cos(p.barAngle), barSin = Math.sin(p.barAngle);
 
   // bulge
-  for (let i = 0; i < p.nBulge; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(p.nBulge); i++) {
     const r = hernquist(m, p.bulge * 0.45, p.bulge * 3.5);
     const [dx, dy, dz] = m.dir();
     m.glow(dx * r, dy * r * p.bulgeQ, dz * r, m.jitter(p.colBulge, 0.1), Math.min(0.015 + 0.3 * r, 0.1), 0.42 * p.bulgeK);
-  }
+  } });
   // bar
   if (p.bar) {
-    for (let i = 0; i < p.nBulge * 0.6; i++) {
+    m.gas(() => { for (let i = 0; i < m.n(p.nBulge * 0.6); i++) {
       const t = (m.r() + m.r() + m.r()) / 1.5 - 1;
       const x = t * p.bar, z = m.g() * p.bar * p.barQ * 0.45 * (1 - 0.5 * Math.abs(t)), y = m.g() * p.thick * 1.5;
       m.glow(x * barCos - z * barSin, y, x * barSin + z * barCos, m.jitter(mix(p.colBulge, p.colDisc, 0.3), 0.1), 0.035 + 0.02 * m.r(), 0.4 * p.bulgeK);
-    }
+    } });
   }
   // the smooth starlight of the disc, in big soft sprites
-  for (let i = 0; i < p.nBase; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(p.nBase); i++) {
     const r = expDisc(m, p.scale, p.rmax);
     const th = m.r() * TAU;
     const col = m.jitter(mix(p.colDisc, p.colArm, smooth(0.2, 1.0, r) * 0.45), 0.08);
     m.glow(r * Math.cos(th), m.g() * p.thick * 2, r * Math.sin(th), col, 0.07 + 0.08 * r, 0.14 * p.discBright);
-  }
+  } });
   // older disc stars, loosely following the arms
-  for (let i = 0; i < p.nDisc; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(p.nDisc); i++) {
     const r = expDisc(m, p.scale, p.rmax);
     let pt;
+    tw = 1;
     if (m.r() < 0.5) pt = onArm(arm(), r, m.g() * p.armW * 3, m.g() * p.thick * (0.7 + r));
     else { const th = m.r() * TAU; pt = [r * Math.cos(th), m.g() * p.thick * (0.7 + r), r * Math.sin(th)]; }
     const col = m.jitter(mix(p.colDisc, p.colArm, smooth(0.25, 1.0, r) * 0.4), 0.1);
-    m.glow(...pt, col, 0.025 + 0.03 * r + 0.015 * m.r(), 0.3 * p.discBright);
-  }
+    m.glow(...pt, col, 0.025 + 0.03 * r + 0.015 * m.r(), 0.3 * p.discBright * tw);
+  } });
   // young arms
-  for (let i = 0; i < p.nArm; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(p.nArm); i++) {
     const r = armR();
     const pt = onArm(arm(), r, m.g() * p.armW * (0.5 + r), m.g() * p.thick * 0.55);
     const col = m.jitter(mix(p.colDisc, p.colArm, 0.45 + 0.5 * smooth(0.05, 0.7, r)), 0.12);
-    m.glow(...pt, col, 0.014 + 0.024 * m.r() + 0.012 * r, 0.48 * p.armBright);
-  }
+    m.glow(...pt, col, 0.014 + 0.024 * m.r() + 0.012 * r, 0.48 * p.armBright * tw);
+  } });
   // star-forming ring
   if (p.ring) {
-    for (let i = 0; i < p.nArm * 0.4 * p.ringK; i++) {
+    m.gas(() => { for (let i = 0; i < m.n(p.nArm * 0.4 * p.ringK); i++) {
       const th = m.r() * TAU;
       const r = p.ring + m.g() * p.ringW * (1 + 0.6 * fbm(Math.cos(th) * 3, Math.sin(th) * 3, 0, 2, p.seed + 5));
       m.glow(r * Math.cos(th), m.g() * p.thick * 0.5, r * Math.sin(th), m.jitter(mix(p.colDisc, p.colArm, 0.75), 0.12),
         0.014 + 0.02 * m.r(), 0.48 * p.armBright);
-    }
+    } });
   }
   // H II regions: pink knots strung along the arms (and the ring)
   const knots = Math.round(p.nHii / 9);
@@ -298,16 +332,17 @@ function spiral(m, o) {
       [cx, cy, cz] = [r * Math.cos(th), m.g() * p.thick * 0.3, r * Math.sin(th)];
     } else {
       [cx, cy, cz] = onArm(arm(), armR(), p.armW * 0.3 + m.g() * p.armW * 0.5, m.g() * p.thick * 0.3);
+      if (m.r() > tw) continue;
     }
-    const sz = 0.004 + 0.009 * m.r() * m.r();
-    for (let q = 0; q < 9; q++) {
+    const sz = 0.005 + 0.011 * m.r() * m.r();
+    m.gas(() => { for (let q = 0; q < m.n(9); q++) {
       m.glow(cx + m.g() * sz, cy + m.g() * sz * 0.5, cz + m.g() * sz, m.jitter(mix(COL.ha, COL.white, 0.12 * m.r()), 0.15),
-        0.005 + 0.008 * m.r(), 1.0);
-    }
-    if (m.r() < 0.5) m.star(cx, cy, cz, COL.young, 0.004, 1.0);
+        0.006 + 0.01 * m.r(), 2.2);
+    } });
+    if (m.r() < 0.5) m.star(cx, cy, cz, COL.young, 0.0014, 1.0);
   }
   // dust lanes on the inner edge of each arm
-  for (let i = 0; i < p.nDust; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(p.nDust); i++) {
     let pt;
     if (p.ring && m.r() < 0.4 * p.ringK) {
       const r = p.ring - p.ringW * 0.4 + m.g() * p.ringW * 0.45, th = m.r() * TAU;
@@ -315,21 +350,23 @@ function spiral(m, o) {
     } else {
       const r = Math.max(p.bulge * 0.8, armR());
       pt = onArm(arm(), r, -p.dustR + m.g() * p.armW * 0.35, m.g() * p.thick * 0.3);
+      if (m.r() > tw) continue;
     }
-    m.dust(...pt, DUST, 0.014 + 0.02 * m.r(), 0.3 * p.dustK);
-  }
+    m.dust(...pt, DUST, 0.02 + 0.024 * m.r(), 0.3 * p.dustK);
+  } });
   // resolved stars
   for (let i = 0; i < p.nStars; i++) {
     const t = m.r();
     if (t < 0.2) {
       const r = hernquist(m, p.bulge * 0.6, p.bulge * 3);
       const [dx, dy, dz] = m.dir();
-      m.star(dx * r, dy * r * p.bulgeQ, dz * r, m.starColor(0.7), 0.003, 0.5);
+      m.star(dx * r, dy * r * p.bulgeQ, dz * r, m.starColor(0.7), 0.0009, 0.3);
     } else if (t < 0.6) {
-      m.star(...onArm(arm(), armR(), m.g() * p.armW, m.g() * p.thick * 0.5), m.starColor(0.15), 0.0035, 0.7);
+      const pt = onArm(arm(), armR(), m.g() * p.armW, m.g() * p.thick * 0.5);
+      m.star(...pt, m.starColor(0.15), 0.0011, 0.45 * tw);
     } else {
       const r = expDisc(m, p.scale, p.rmax), th = m.r() * TAU;
-      m.star(r * Math.cos(th), m.g() * p.thick, r * Math.sin(th), m.starColor(0.5), 0.003, 0.42);
+      m.star(r * Math.cos(th), m.g() * p.thick, r * Math.sin(th), m.starColor(0.5), 0.0009, 0.25);
     }
   }
   return { armAt, k, onArm };
@@ -340,7 +377,7 @@ function globulars(m, n, a, rmax, c = [0, 0, 0], k = 1) {
   for (let i = 0; i < n; i++) {
     const r = hernquist(m, a, rmax);
     const [dx, dy, dz] = m.dir();
-    m.star(c[0] + dx * r * k, c[1] + dy * r * k, c[2] + dz * r * k, m.jitter([1.0, 0.88, 0.7], 0.1), 0.0018, 0.35 + 0.3 * m.r());
+    m.star(c[0] + dx * r * k, c[1] + dy * r * k, c[2] + dz * r * k, m.jitter([1.0, 0.88, 0.7], 0.1), 0.0012, 0.35 + 0.3 * m.r());
   }
 }
 
@@ -349,18 +386,28 @@ function strand(m, pts, layer, col, width, size, alpha, per = 6) {
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1];
     const al = typeof alpha === 'function' ? alpha(a) : alpha;
-    for (let q = 0; q < per; q++) {
+    m.gas(() => { for (let q = 0; q < m.n(per); q++) {
       const t = m.r();
       const x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t, z = a[2] + (b[2] - a[2]) * t;
       m[layer](x + m.g() * width, y + m.g() * width, z + m.g() * width, col, size * (0.7 + 0.6 * m.r()), al);
-    }
+    } });
   }
 }
 
 // A blob of particles with a gaussian profile.
 function blob(m, layer, c, s, n, col, size, alpha, sq = [1, 1, 1]) {
-  for (let i = 0; i < n; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(n); i++) {
     m[layer](c[0] + m.g() * s * sq[0], c[1] + m.g() * s * sq[1], c[2] + m.g() * s * sq[2], typeof col === 'function' ? col() : col, size * (0.7 + 0.6 * m.r()), alpha);
+  } });
+}
+
+// Stars scattered through and around a nebula, most of them faint, as in any photograph of one.
+function fieldStars(m, n, R = 1.25) {
+  for (let i = 0; i < n; i++) {
+    const [dx, dy, dz] = m.dir();
+    const r = R * Math.cbrt(m.r());
+    const L = Math.pow(m.r(), 4);
+    m.star(dx * r, dy * r, dz * r, m.starColor(0.3 + 0.45 * m.r()), 0.0035, 0.1 + 1.5 * L);
   }
 }
 
@@ -378,7 +425,7 @@ MODELS.andromeda = (m) => {
   m.ctx.companions.m32 = c32;
   m.ctx.companions.m110 = c110;
   ellipsoid(m, { a: 0.006, rmax: 0.04, q: 0.85, n: 1800, nStars: 400, c: c32, bright: 1.6, sizeK: 0.4 });
-  ellipsoid(m, { a: 0.035, rmax: 0.14, q: 0.55, n: 2500, nStars: 700, c: c110, bright: 0.8, sizeK: 0.45 });
+  ellipsoid(m, { a: 0.05, rmax: 0.16, q: 0.55, n: 2500, nStars: 700, c: c110, bright: 0.45, sizeK: 0.5 });
   globulars(m, 450, 0.25, 1.4);
 };
 
@@ -390,11 +437,11 @@ MODELS.triangulum = (m) => {
   });
   // NGC 604: a giant H II region in the north-eastern arm
   const c = m.ctx.onDisc(m.ctx.fromSky(0.22, 0.22, 0));
-  for (let i = 0; i < 900; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(900); i++) {
     const r = Math.abs(m.g()) * 0.02;
     const [dx, dy, dz] = m.dir();
     m.glow(c[0] + dx * r, c[1] + dy * r * 0.6, c[2] + dz * r, m.jitter(mix(COL.ha, COL.white, 0.2 * m.r()), 0.15), 0.004 + 0.008 * m.r(), 1.1);
-  }
+  } });
   for (let i = 0; i < 40; i++) m.star(c[0] + m.g() * 0.006, c[1] + m.g() * 0.004, c[2] + m.g() * 0.006, COL.young, 0.004, 1.2);
 };
 
@@ -412,7 +459,7 @@ MODELS.whirlpool = (m) => {
     armBright: 1.05, seed: 11,
   });
   // the bridge of stars reaching the companion
-  for (let i = 0; i < 2200; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(2200); i++) {
     const t = m.r();
     const r = 0.95 + t * 0.15;
     const th = phase + k * Math.log(r / r0) + m.g() * 0.05;
@@ -420,55 +467,55 @@ MODELS.whirlpool = (m) => {
     const tt = t * t;
     const q = [p[0] + (comp[0] - p[0]) * tt, p[1] + (comp[1] - p[1]) * tt, p[2] + (comp[2] - p[2]) * tt];
     m.glow(q[0] + m.g() * 0.03, q[1] + m.g() * 0.02, q[2] + m.g() * 0.03, m.jitter(mix(COL.disc, COL.young, 0.4), 0.1), 0.025 + 0.02 * m.r(), 0.3);
-  }
+  } });
   // NGC 5195: a disturbed, dusty, yellowish lenticular
   ellipsoid(m, { a: 0.045, rmax: 0.28, q: 0.75, n: 4500, nStars: 1000, c: comp, bright: 1.1, sizeK: 0.35 });
-  for (let i = 0; i < 1800; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(1800); i++) {
     const t = m.u(-1, 1);
     m.dust(comp[0] + t * 0.16 + m.g() * 0.03, comp[1] + m.g() * 0.035 + t * 0.05, comp[2] + m.g() * 0.05, DUST, 0.02 + 0.02 * m.r(), 0.35);
-  }
+  } });
 };
 
 MODELS.sombrero = (m) => {
   // a vast bulge and halo
   ellipsoid(m, { a: 0.11, rmax: 0.95, q: 0.7, n: 16000, nStars: 3500, bright: 1.0, sizeK: 0.32, col: mix(COL.old, COL.white, 0.25) });
   // thin disc of stars, brightest just inside the dust ring
-  for (let i = 0; i < 9000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(9000); i++) {
     const r = 0.2 + Math.abs(m.g()) * 0.25 + m.r() * 0.6;
     if (r > 1) continue;
     const th = m.r() * TAU;
     m.glow(r * Math.cos(th), m.g() * 0.012, r * Math.sin(th), m.jitter(mix(COL.disc, COL.old, 0.3), 0.08), 0.02 + 0.02 * m.r(), 0.4);
-  }
+  } });
   // the dust ring, the hat's brim
-  for (let i = 0; i < 18000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(18000); i++) {
     const th = m.r() * TAU;
     const r = 0.78 + m.g() * 0.06 + 0.025 * fbm(Math.cos(th) * 4, Math.sin(th) * 4, 0, 3, 21);
     m.dust(r * Math.cos(th), m.g() * 0.009, r * Math.sin(th), DUST, 0.014 + 0.016 * m.r(), 0.5);
-  }
-  for (let i = 0; i < 3000; i++) {
+  } });
+  m.gas(() => { for (let i = 0; i < m.n(3000); i++) {
     const th = m.r() * TAU, r = 0.92 + m.g() * 0.04;
     m.glow(r * Math.cos(th), m.g() * 0.008, r * Math.sin(th), m.jitter(mix(COL.young, COL.disc, 0.3), 0.1), 0.014, 0.3);
-  }
+  } });
   globulars(m, 1600, 0.3, 1.5);
 };
 
 MODELS.cigar = (m) => {
   // an edge-on disc of mottled starlight with a blazing core
-  for (let i = 0; i < 26000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(26000); i++) {
     const r = expDisc(m, 0.2, 1);
     const th = m.r() * TAU;
     const x = r * Math.cos(th), z = r * Math.sin(th), y = m.g() * (0.04 + 0.06 * (1 - r));
     const core = Math.exp(-r / 0.07);
     m.glow(x, y, z, m.jitter(mix(mix(COL.disc, COL.young, 0.3), COL.white, core), 0.1), 0.02 + 0.035 * r, 0.5 + 0.5 * core);
-  }
+  } });
   // patchy dust across the disc
-  for (let i = 0; i < 16000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(16000); i++) {
     const r = expDisc(m, 0.35, 0.95), th = m.r() * TAU;
     const x = r * Math.cos(th), z = r * Math.sin(th), y = m.g() * 0.035;
     const n = fbm(x * 5, y * 9, z * 5, 4, 41);
     if (m.r() > smooth(-0.1, 0.25, n)) continue;
     m.dust(x, y, z, DUST, 0.02 + 0.02 * m.r(), 0.45);
-  }
+  } });
   // super star clusters in the core
   for (let i = 0; i < 400; i++) m.star(m.g() * 0.05, m.g() * 0.015, m.g() * 0.05, COL.young, 0.004, 1.0);
   // the superwind: red hydrogen filaments streaming out of both faces
@@ -496,7 +543,7 @@ MODELS.m87 = (m) => {
   const dir = m.ctx.skyDir(290);
   const L = 0.076;
   const knots = [[0, 2.5], [0.02, 1.2], [0.12, 0.5], [0.25, 0.8], [0.42, 0.7], [0.6, 1.0], [0.78, 0.8], [0.92, 0.9], [1.0, 0.6]];
-  for (let i = 0; i < 3000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(3000); i++) {
     const t = m.r();
     let w = 0.25;
     for (const [kt, kb] of knots) w += kb * Math.exp(-((t - kt) ** 2) / 0.0012);
@@ -504,7 +551,7 @@ MODELS.m87 = (m) => {
     const spread = 0.0012 + t * 0.003;
     m.glow(dir[0] * t * L + m.g() * spread, dir[1] * t * L + m.g() * spread, dir[2] * t * L + m.g() * spread,
       m.jitter(COL.sync, 0.1), 0.002 + 0.002 * m.r(), 1.0);
-  }
+  } });
   m.star(0, 0, 0, [1, 0.95, 0.85], 0.004, 1.5);
 };
 
@@ -513,21 +560,21 @@ MODELS.centaurusA = (m) => {
   // the remains of a swallowed spiral: a warped, dusty disc seen nearly edge-on along position angle 115°
   const ax = m.ctx.skyDir(115), up = m.ctx.skyDir(25), tw = m.ctx.toward;
   const at = (s, h, d) => [ax[0] * s + up[0] * h + tw[0] * d, ax[1] * s + up[1] * h + tw[1] * d, ax[2] * s + up[2] * h + tw[2] * d];
-  for (let i = 0; i < 18000; i++) {
-    const r = 0.05 + Math.pow(m.r(), 0.8) * 0.38, th = m.r() * TAU;
-    const warp = 0.35 * r * Math.sin(th + r * 4);
+  m.gas(() => { for (let i = 0; i < m.n(24000); i++) {
+    const r = 0.04 + Math.pow(m.r(), 0.75) * 0.52, th = m.r() * TAU;
+    const warp = 0.3 * r * Math.sin(th + r * 4);
     const s = r * Math.cos(th), d = r * Math.sin(th);
-    const h = d * (0.2 + warp) + m.g() * 0.012;
-    const n = fbm(s * 8, h * 8, d * 8, 3, 51);
-    if (m.r() > 0.35 + n) continue;
-    m.dust(...at(s, h, d), DUST, 0.016 + 0.02 * m.r(), 0.32);
+    const h = d * (0.3 + warp) + m.g() * 0.02;
+    const n = fbm(s * 7, h * 7, d * 7, 3, 51);
+    if (m.r() > 0.45 + n) continue;
+    m.dust(...at(s, h, d), DUST, 0.02 + 0.024 * m.r(), 0.3);
     if (i % 3 === 0) {
       const edge = m.r() < 0.5 ? 1 : -1;
-      const p = at(s, h + edge * 0.022, d);
-      if (m.r() < 0.7) m.glow(...p, m.jitter(COL.young, 0.15), 0.006 + 0.006 * m.r(), 0.7);
-      else m.glow(...p, m.jitter(COL.ha, 0.1), 0.004 + 0.004 * m.r(), 0.9);
+      const p = at(s, h + edge * 0.03, d);
+      if (m.r() < 0.7) m.glow(...p, m.jitter(COL.young, 0.15), 0.008 + 0.008 * m.r(), 0.8);
+      else m.glow(...p, m.jitter(COL.ha, 0.1), 0.006 + 0.005 * m.r(), 1.2);
     }
-  }
+  } });
   m.star(0, 0, 0, [1, 0.92, 0.8], 0.003, 1.3);
 };
 
@@ -535,12 +582,12 @@ MODELS.lmc = (m) => {
   const seed = 17;
   // off-centre bar of old stars
   const bc = [0.05, 0, -0.03];
-  for (let i = 0; i < 7000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(7000); i++) {
     const t = (m.r() + m.r() + m.r()) / 1.5 - 1;
     m.glow(bc[0] + t * 0.36, m.g() * 0.02, bc[2] + m.g() * 0.07 * (1 - 0.4 * Math.abs(t)), m.jitter(mix(COL.old, COL.disc, 0.5), 0.1), 0.035 + 0.035 * m.r(), 0.16);
-  }
+  } });
   // patchy disc, and a single arm wrapping round the north
-  for (let i = 0; i < 34000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(34000); i++) {
     let r = expDisc(m, 0.32, 1), th = m.r() * TAU;
     if (m.r() < 0.3) { th = 0.4 + m.r() * Math.PI * 1.2; r = 0.5 + m.g() * 0.06; }
     const x = r * Math.cos(th), z = r * Math.sin(th);
@@ -548,7 +595,7 @@ MODELS.lmc = (m) => {
     if (m.r() > 0.3 + n * 1.2) continue;
     const big = m.r() < 0.4;
     m.glow(x, m.g() * 0.03, z, m.jitter(mix(COL.disc, COL.young, 0.45 + 0.35 * m.r()), 0.12), big ? 0.06 + 0.04 * m.r() : 0.02 + 0.02 * m.r(), big ? 0.12 : 0.4);
-  }
+  } });
   // star-forming clouds everywhere
   for (let c = 0; c < 160; c++) {
     const r = Math.sqrt(m.r()) * 0.85, th = m.r() * TAU;
@@ -558,25 +605,25 @@ MODELS.lmc = (m) => {
   // the Tarantula Nebula, with its central cluster R136
   const t = m.ctx.onDisc(m.ctx.fromSky(0.235, 0.117, 0));
   m.ctx.marks.tarantula = t;
-  for (let i = 0; i < 4500; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(4500); i++) {
     const r = Math.pow(m.r(), 1.4) * 0.065;
     const [dx, dy, dz] = m.dir();
     const n = ridge(dx * 3 + r * 40, dy * 3, dz * 3 + r * 40, 3, 23);
     if (m.r() > 0.3 + n) continue;
     const col = r < 0.012 ? mix(COL.oiii, COL.white, 0.4) : r < 0.028 ? mix(COL.ha, COL.white, 0.15) : COL.ha;
     m.glow(t[0] + dx * r, t[1] + dy * r * 0.7, t[2] + dz * r, m.jitter(col, 0.12), 0.003 + 0.004 * m.r(), 1.0);
-  }
+  } });
   for (let i = 0; i < 120; i++) m.star(t[0] + m.g() * 0.002, t[1] + m.g() * 0.0015, t[2] + m.g() * 0.002, COL.young, 0.003, 1.3);
   // SN 1987A
   const sn = m.ctx.onDisc(m.ctx.fromSky(0.185, 0.087, 0));
   m.star(sn[0], sn[1], sn[2], [0.9, 0.6, 0.6], 0.003, 1.2);
   // dust and resolved stars
-  for (let i = 0; i < 8000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(8000); i++) {
     const r = expDisc(m, 0.35, 0.95), th = m.r() * TAU;
     const x = r * Math.cos(th), z = r * Math.sin(th);
     if (m.r() > smooth(0.05, 0.3, fbm(x * 4, 0, z * 4, 4, seed + 3))) continue;
     m.dust(x, m.g() * 0.015, z, DUST, 0.015 + 0.02 * m.r(), 0.28);
-  }
+  } });
   for (let i = 0; i < 7000; i++) {
     const r = expDisc(m, 0.3, 1), th = m.r() * TAU;
     m.star(r * Math.cos(th), m.g() * 0.03, r * Math.sin(th), m.starColor(0.4), 0.003, 0.55);
@@ -596,14 +643,14 @@ MODELS.milkyWay = (m) => {
     nDust: 13000, armBright: 0.95, seed: 29,
   });
   // the Orion Spur, the short arm the Sun lives in
-  for (let i = 0; i < 2500; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(2500); i++) {
     const s = m.u(-0.28, 0.32);
     const r = sun * Math.exp(s * 0.21) + m.g() * 0.012;
     const th = s * 0.95;
     const y = m.g() * 0.006;
     if (i % 3 === 0) m.dust(r * Math.cos(th) - 0.012, y, r * Math.sin(th), DUST, 0.012, 0.2);
     else m.glow(r * Math.cos(th), y, r * Math.sin(th), m.jitter(mix(COL.disc, COL.young, 0.6), 0.1), 0.012 + 0.014 * m.r(), 0.35);
-  }
+  } });
   globulars(m, 500, 0.25, 1.4);
   m.star(0, 0, 0, [1, 0.85, 0.6], 0.004, 1.0);
 };
@@ -614,7 +661,7 @@ MODELS.orion = (m) => {
   const bayMask = (x, y) => smooth(0.04, 0.16, Math.hypot((x - bay[0]) * 1.1, (y - bay[1]) * 0.8));
   const zs = (rho) => -0.28 + 0.45 * rho * rho;
   // the glowing wall of the cavity: a bowl opening towards us, carved by the Trapezium stars
-  for (let i = 0; i < 46000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(46000); i++) {
     const rho = m.r() < 0.45 ? -0.2 * Math.log(Math.max(m.r(), 1e-9)) : Math.sqrt(m.r()) * 0.95;
     if (rho > 1) continue;
     const a = m.r() * TAU;
@@ -630,40 +677,40 @@ MODELS.orion = (m) => {
     if (rho > 0.5 && fbm(x * 2, y * 2, 5, 2, 9) > 0.12) col = mix(col, [0.62, 0.35, 0.95], 0.3);
     const big = m.r() < 0.4;
     m.glow(x, y, z, m.jitter(col, 0.08), big ? 0.05 + 0.07 * rho : 0.012 + 0.03 * rho, big ? 0.16 : 0.42);
-  }
+  } });
   // the Huygens region: the bright heart round the Trapezium
-  for (let i = 0; i < 7000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(7000); i++) {
     const x = m.g() * 0.11, y = m.g() * 0.1 - 0.02;
     const rho = Math.hypot(x, y);
     if (m.r() > bayMask(x, y)) continue;
     const col = mix(mix(COL.white, COL.oiii, 0.5), COL.ha, smooth(0.04, 0.2, rho));
     m.glow(x, y, zs(rho) + m.g() * 0.03, m.jitter(col, 0.08), 0.02 + 0.03 * m.r(), 0.15);
-  }
+  } });
   // the Orion Bar: a bright ionisation front south-east of the Trapezium
-  for (let i = 0; i < 2500; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(2500); i++) {
     const t = m.u(-1, 1);
     const x = -0.16 - 0.12 * t + m.g() * 0.02, y = -0.16 + 0.12 * t + m.g() * 0.02;
     m.glow(x, y, -0.08 + m.g() * 0.02, m.jitter(mix(COL.ha, COL.sii, 0.35), 0.1), 0.015 + 0.01 * m.r(), 0.3 * (1 - 0.6 * Math.abs(t)));
-  }
+  } });
   // M43, a small round nebula just north
-  for (let i = 0; i < 2500; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(2500); i++) {
     const r = Math.pow(m.r(), 0.8) * 0.1;
     const [dx, dy, dz] = m.dir();
     m.glow(-0.05 + dx * r, 0.43 + dy * r, -0.12 + dz * r * 0.6, m.jitter(mix(COL.ha, COL.white, 0.15 * (1 - r / 0.1)), 0.1), 0.015 + 0.02 * m.r(), 0.35);
-  }
+  } });
   m.star(-0.05, 0.43, -0.1, COL.young, 0.006, 1.6);
   // dust: the dark bay, the lane dividing M42 from M43, and wisps over the outskirts
   blob(m, 'dust', [bay[0], bay[1] + 0.03, 0.12], 0.06, 3000, DUST, 0.03, 0.45, [1.1, 0.8, 0.6]);
-  for (let i = 0; i < 2500; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(2500); i++) {
     const x = m.u(-0.35, 0.25);
     m.dust(x, 0.33 + 0.08 * Math.sin(x * 6) + m.g() * 0.025, 0.05 + m.g() * 0.04, DUST, 0.025 + 0.015 * m.r(), 0.4);
-  }
-  for (let i = 0; i < 14000; i++) {
+  } });
+  m.gas(() => { for (let i = 0; i < m.n(14000); i++) {
     const rho = 0.35 + m.r() * 0.65, a = m.r() * TAU;
     const x = rho * Math.cos(a), y = rho * Math.sin(a), z = zs(rho) + 0.05 + m.g() * 0.06;
     if (m.r() > smooth(0.62, 0.85, ridge(x * 2.5, y * 2.5, z * 2.5, 4, 3))) continue;
     m.dust(x, y, z, DUST, 0.03 + 0.03 * m.r(), 0.35);
-  }
+  } });
   // the Trapezium and the young cluster around it
   for (const [x, y, b] of [[0.0, 0.004, 2.6], [0.006, -0.002, 1.9], [-0.004, -0.004, 1.8], [-0.007, 0.003, 1.5]]) {
     m.star(x, y, 0.05, [0.75, 0.82, 1.0], 0.012, b);
@@ -674,6 +721,7 @@ MODELS.orion = (m) => {
     const [dx, dy, dz] = m.dir();
     m.star(dx * r, dy * r, 0.05 + dz * r * 0.5, m.starColor(0.65), 0.003, 0.15 + 0.3 * m.r());
   }
+  fieldStars(m, 3000);
 };
 
 // A pillar of dense gas: dark inside, glowing where the starlight hits it.
@@ -686,8 +734,9 @@ function pillar(m, base, toward, len, w0, w1, light) {
   const ul = Math.hypot(...u);
   u[0] /= ul; u[1] /= ul; u[2] /= ul;
   const v = [ax[1] * u[2] - ax[2] * u[1], ax[2] * u[0] - ax[0] * u[2], ax[0] * u[1] - ax[1] * u[0]];
-  const n = Math.round(len * 300000 * (w0 + w1));
-  for (let i = 0; i < n; i++) {
+  // as many particles across a thin pillar as a thick one, so all are equally opaque
+  const n = Math.round(len * 300000 * (w0 + w1) * Math.min(60, (0.045 / ((w0 + w1) / 2)) ** 2));
+  m.gas(() => { for (let i = 0; i < m.n(n); i++) {
     const t = Math.pow(m.r(), 0.9);
     const bend = 0.3 * w0 * Math.sin(t * 3 + base[0] * 10);
     let w = w0 + (w1 - w0) * t;
@@ -700,21 +749,47 @@ function pillar(m, base, toward, len, w0, w1, light) {
       base[1] + ax[1] * t * len + (u[1] * ca + v[1] * sa) * rr + u[1] * bend,
       base[2] + ax[2] * t * len + (u[2] * ca + v[2] * sa) * rr + u[2] * bend,
     ];
-    m.dust(...p, DUST, w * 0.32, 0.9);
-    // the lit skin, brightest at the tip
-    const sx = (u[0] * ca + v[0] * sa), sy = (u[1] * ca + v[1] * sa), sz = (u[2] * ca + v[2] * sa);
-    const facing = sx * light[0] + sy * light[1] + sz * light[2];
-    if (rr > w * 0.75 && facing > -0.3 && m.r() < 0.3) {
-      const b = (0.35 + 0.65 * Math.max(0, facing)) * (0.5 + t * t * 1.5);
-      m.glow(p[0] + sx * w * 0.15, p[1] + sy * w * 0.15, p[2] + sz * w * 0.15, m.jitter(mix(COL.ha, COL.sii, 0.45), 0.12), w * 0.22, 0.6 * b);
+    m.dust(...p, DUST, w * 0.22, 0.9);
+  } });
+  // the ionisation front: a bright, thin skin just outside the dust where the starlight hits. The pillars
+  // point almost at their stars, so it is brightest on the rounded heads, with a thinner edge down the
+  // side that faces the stars a little.
+  const la = light[0] * ax[0] + light[1] * ax[1] + light[2] * ax[2];
+  const lat = [light[0] - ax[0] * la, light[1] - ax[1] * la, light[2] - ax[2] * la];
+  const latL = Math.hypot(...lat) || 1;
+  const skin = m.jitter(mix(mix(COL.ha, COL.sii, 0.4), COL.white, 0.3), 0.05);
+  m.gas(() => { for (let i = 0; i < m.n(Math.round(n * 0.5)); i++) {
+    if (m.r() < 0.35) {
+      // the head
+      const [dx, dy, dz] = m.dir();
+      const up = dx * ax[0] + dy * ax[1] + dz * ax[2];
+      if (up < 0.15) continue;
+      const lit = dx * light[0] + dy * light[1] + dz * light[2];
+      const rc = w1 * 1.25 * (1 + 0.3 * noise3(dx * 2, dy * 2, dz * 2, 52)) * (1.04 + 0.12 * m.r());
+      const bend = 0.3 * w0 * Math.sin(3 + base[0] * 10);
+      const tip = [base[0] + ax[0] * len * 0.93 + u[0] * bend, base[1] + ax[1] * len * 0.93 + u[1] * bend, base[2] + ax[2] * len * 0.93 + u[2] * bend];
+      m.glow(tip[0] + dx * rc, tip[1] + dy * rc, tip[2] + dz * rc, m.jitter(skin, 0.1), w1 * 0.1, 24 * (0.4 + 0.6 * Math.max(0, lit)) * smooth(0.15, 0.5, up));
+      continue;
     }
-  }
+    const t = Math.pow(m.r(), 0.7);
+    const bend = 0.3 * w0 * Math.sin(t * 3 + base[0] * 10);
+    let w = w0 + (w1 - w0) * t;
+    if (t > 0.86) w *= 1.25;
+    const a = m.r() * TAU;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    const sx = (u[0] * ca + v[0] * sa), sy = (u[1] * ca + v[1] * sa), sz = (u[2] * ca + v[2] * sa);
+    const facing = (sx * lat[0] + sy * lat[1] + sz * lat[2]) / latL;
+    if (facing < 0.25) continue;
+    const rs = w * (1 + 0.35 * noise3(t * 6, ca * 2, sa * 2, 51)) * (1.05 + 0.1 * m.r());
+    m.glow(base[0] + ax[0] * t * len + sx * rs + u[0] * bend, base[1] + ax[1] * t * len + sy * rs + u[1] * bend, base[2] + ax[2] * t * len + sz * rs + u[2] * bend,
+      m.jitter(skin, 0.1), w * 0.08, 14 * Math.pow(facing, 1.5) * (0.3 + 1.2 * t * t));
+  } });
 }
 
 MODELS.eagle = (m) => {
   const cl = [0.22, 0.28, 0.05];
   // a bubble of glowing hydrogen around the cluster's cavity
-  for (let i = 0; i < 40000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(40000); i++) {
     const [dx, dy, dz] = m.dir();
     const r = 0.25 + 0.75 * Math.pow(m.r(), 0.7);
     const x = 0.03 + dx * r, y = 0.05 + dy * r * 0.88, z = dz * r * 0.6;
@@ -726,23 +801,23 @@ MODELS.eagle = (m) => {
     const col = mix(mix(COL.oiii, COL.ha, 0.6), mix(COL.ha, COL.haDeep, 0.45), smooth(0.25, 0.7, r));
     const big = m.r() < 0.4;
     m.glow(x, y, z, m.jitter(col, 0.08), big ? 0.07 + 0.05 * r : 0.02 + 0.03 * r, big ? 0.14 : 0.4);
-  }
+  } });
   // a bright sheet of gas behind the pillars, so they stand out in silhouette
-  for (let i = 0; i < 9000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(9000); i++) {
     const x = -0.05 + m.g() * 0.16, y = -0.24 + m.g() * 0.13, z = -0.14 + m.g() * 0.05;
-    m.glow(x, y, z, m.jitter(mix(COL.ha, mix(COL.oiii, COL.white, 0.4), 0.25 * m.r()), 0.08), 0.03 + 0.03 * m.r(), 0.35);
-  }
+    m.glow(x, y, z, m.jitter(mix(COL.ha, mix(COL.oiii, COL.white, 0.4), 0.25 * m.r()), 0.08), 0.03 + 0.03 * m.r(), 0.22);
+  } });
   // dark clouds: the "eagle" below the cluster, from which the pillars rise
-  for (let i = 0; i < 12000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(12000); i++) {
     const x = -0.06 + m.g() * 0.22, y = -0.5 + m.g() * 0.11 + 0.25 * (x + 0.06) * (x + 0.06), z = m.g() * 0.07;
     const n = fbm(x * 6, y * 6, z * 6, 4, 63);
     if (m.r() > smooth(-0.25, 0.25, n)) continue;
     m.dust(x, y, z, DUST, 0.02 + 0.02 * m.r(), 0.45);
     if (m.r() < 0.12 && y > -0.48) m.glow(x, y + 0.02, z, mix(COL.ha, COL.sii, 0.4), 0.02, 0.35);
-  }
+  } });
   // the Pillars of Creation and the Spire, all pointing at the cluster that lights them
   const lightFrom = (b) => { const d = [cl[0] - b[0], cl[1] - b[1], cl[2] - b[2]]; const l = Math.hypot(...d); return d.map((v) => v / l); };
-  const pillars = [[[-0.14, -0.4, 0.0], 0.16, 0.04, 0.022], [[-0.05, -0.41, -0.02], 0.11, 0.034, 0.018], [[0.04, -0.4, 0.02], 0.075, 0.028, 0.015]];
+  const pillars = [[[-0.14, -0.4, 0.0], 0.17, 0.05, 0.028], [[-0.04, -0.41, -0.02], 0.12, 0.042, 0.022], [[0.05, -0.4, 0.02], 0.08, 0.034, 0.019]];
   for (const [b, len, w0, w1] of pillars) pillar(m, b, [cl[0] - 0.12, cl[1], cl[2]], len, w0, w1, lightFrom(b));
   pillar(m, [-0.42, 0.24, -0.05], cl, 0.25, 0.04, 0.014, lightFrom([-0.42, 0.24, -0.05]));
   // NGC 6611
@@ -752,12 +827,13 @@ MODELS.eagle = (m) => {
     m.star(cl[0] + dx * r, cl[1] + dy * r, cl[2] + dz * r, m.starColor(0.25), 0.004, 0.15 + 0.45 * m.r());
   }
   for (let i = 0; i < 8; i++) m.star(cl[0] + m.g() * 0.04, cl[1] + m.g() * 0.04, cl[2] + m.g() * 0.04, [0.7, 0.8, 1], 0.01, 1.6);
+  fieldStars(m, 3500);
 };
 
 MODELS.lagoon = (m) => {
   const hg = [0.27, -0.02, 0.03];
   const lane = (y) => -0.05 + 0.07 * Math.sin(y * 4 + 0.5);
-  for (let i = 0; i < 46000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(46000); i++) {
     const [dx, dy, dz] = m.dir();
     const r = Math.pow(m.r(), 0.6);
     const x = dx * r, y = dy * r * 0.5, z = dz * r * 0.45;
@@ -769,20 +845,20 @@ MODELS.lagoon = (m) => {
     if (Math.abs(x + 0.15) < 0.15 && fbm(x * 5, y * 5, z * 5, 2, 7) > 0.1) col = mix(col, COL.oiii, 0.22);
     const big = m.r() < 0.4;
     m.glow(x, y, z, m.jitter(col, 0.08), big ? 0.06 + 0.04 * r : 0.018 + 0.02 * r, big ? 0.13 : 0.38);
-  }
+  } });
   // the Hourglass: the bright heart round Herschel 36
-  for (let i = 0; i < 5000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(5000); i++) {
     const r = Math.abs(m.g()) * 0.035;
     const [dx, dy, dz] = m.dir();
     const pinch = 0.45 + 0.55 * Math.abs(dy);
     m.glow(hg[0] + dx * r * pinch, hg[1] + dy * r * 1.3, hg[2] + dz * r * pinch, m.jitter(mix(mix(COL.white, COL.sii, 0.3), COL.ha, smooth(0, 0.05, r)), 0.1),
       0.006 + 0.008 * m.r(), 0.7);
-  }
+  } });
   // the lagoon: a winding lane of dust in front of the glow
-  for (let i = 0; i < 7000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(7000); i++) {
     const y = m.u(-0.45, 0.45);
     m.dust(lane(y) + m.g() * 0.035, y, 0.12 + m.g() * 0.05, DUST, 0.03 + 0.02 * m.r(), 0.42);
-  }
+  } });
   // Bok globules: small dark knots near the bright part
   for (let b = 0; b < 16; b++) {
     const c = [m.u(0.05, 0.6), m.u(-0.22, 0.22), m.u(0.05, 0.2)], s = m.u(0.005, 0.014);
@@ -796,6 +872,7 @@ MODELS.lagoon = (m) => {
     const [dx, dy, dz] = m.dir();
     m.star(-0.38 + dx * r, dy * r, 0.05 + dz * r, m.starColor(0.3), 0.005, 0.4 + 0.8 * m.r());
   }
+  fieldStars(m, 3500);
 };
 
 MODELS.carina = (m) => {
@@ -805,7 +882,7 @@ MODELS.carina = (m) => {
     const arm = (ax, ay) => { const t = clamp01((x * ax + (y + 0.08) * ay) / (ax * ax + ay * ay)); return Math.hypot(x - ax * t, y + 0.08 - ay * t); };
     return Math.min(arm(-0.55, -0.5), arm(0.5, -0.55));
   };
-  for (let i = 0; i < 50000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(50000); i++) {
     const [dx, dy, dz] = m.dir();
     const r = Math.pow(m.r(), 0.65);
     const x = dx * r, y = dy * r * 0.95, z = dz * r * 0.7;
@@ -819,35 +896,47 @@ MODELS.carina = (m) => {
     col = mix(col, COL.sii, smooth(0.45, 0.95, rc) * 0.45);
     const big = m.r() < 0.4;
     m.glow(x, y, z, m.jitter(col, 0.08), big ? 0.06 + 0.04 * r : 0.015 + 0.025 * r, big ? 0.13 : 0.38);
-  }
+  } });
   // dust: the V, plus dark filaments and pillars round the edges
-  for (let i = 0; i < 11000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(11000); i++) {
     const t = m.r(), left = m.r() < 0.5;
     const ax = left ? -0.55 : 0.5, ay = left ? -0.5 : -0.55;
     const wob = 0.06 * fbm(t * 4, left ? 1 : 5, 0, 3, 85);
     const w = (0.02 + 0.04 * t) * (0.6 + 0.8 * Math.abs(fbm(t * 6, left ? 2 : 7, 1, 2, 86)) * 2);
     if (m.r() > 0.35 + 0.65 * smooth(-0.3, 0.2, fbm(t * 9, left ? 3 : 8, 2, 3, 87))) continue;
     m.dust(ax * t - ay * wob + m.g() * w, -0.08 + ay * t + ax * wob + m.g() * w, 0.08 + m.g() * 0.06, DUST, 0.025 + 0.025 * m.r(), 0.5);
-  }
-  for (let i = 0; i < 20000; i++) {
+  } });
+  m.gas(() => { for (let i = 0; i < m.n(20000); i++) {
     const [dx, dy, dz] = m.dir();
     const r = 0.35 + 0.65 * m.r();
     const x = dx * r, y = dy * r, z = dz * r * 0.5;
     if (m.r() > smooth(0.6, 0.85, ridge(x * 3, y * 3, z * 3, 4, 83))) continue;
     m.dust(x, y, z, DUST, 0.025 + 0.02 * m.r(), 0.42);
-  }
+  } });
   // Mystic Mountain, and the Keyhole beside Eta Carinae
   pillar(m, [0.1, -0.385, 0], [0.05, 0.0, 0], 0.035, 0.008, 0.004, [0, 1, 0]);
-  blob(m, 'dust', [-0.03, 0.045, 0.03], 0.01, 900, DUST, 0.008, 0.8, [1.2, 0.8, 0.6]);
+  // the Keyhole: a dark cloud with a rounded head and a narrow stem, clumpy at every scale
+  const kh = [-0.03, 0.045, 0.03];
+  m.gas(() => { for (let i = 0; i < m.n(5000); i++) {
+    let x, y;
+    if (m.r() < 0.55) { const a = m.r() * TAU, r = 0.011 * Math.sqrt(m.r()); x = Math.cos(a) * r * 1.15; y = 0.006 + Math.sin(a) * r; }
+    else { const t = m.r(); y = 0.003 - t * 0.026; x = (m.r() - 0.5) * 2 * (0.009 * (1 - t) + 0.0025) + 0.004 * Math.sin(t * 5); }
+    const z = m.g() * 0.004;
+    const n = fbm(x * 260, y * 260, z * 260, 4, 88);
+    if (m.r() > smooth(-0.4, 0.3, n)) continue;
+    m.dust(kh[0] + x, kh[1] + y, kh[2] + z, DUST, 0.002 + 0.003 * m.r(), 0.4 + 0.4 * smooth(-0.1, 0.4, n));
+    // its edges lit by Eta Carinae
+    if (m.r() < 0.12) m.glow(kh[0] + x * 1.15, kh[1] + y * 1.1, kh[2] + z, m.jitter(mix(COL.ha, COL.white, 0.35), 0.1), 0.0015, 5);
+  } });
   // Eta Carinae and the Homunculus: two lobes along position angle 310°
   const axis = [-Math.sin(310 * DEG), Math.cos(310 * DEG), 0];
-  for (let i = 0; i < 1600; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(1600); i++) {
     const side = m.r() < 0.5 ? 1 : -1;
     const [dx, dy, dz] = m.dir();
     const R = 0.0011;
     const c = [axis[0] * R * side, axis[1] * R * side, 0];
     m.glow(c[0] + dx * R * 0.85, c[1] + dy * R * 0.85, c[2] + dz * R * 0.85, m.jitter([1, 0.55, 0.35], 0.12), 0.0003, 0.9);
-  }
+  } });
   m.star(...eta, [1, 0.9, 0.75], 0.01, 3);
   // Trumpler 14 and Trumpler 16
   for (const [c, n] of [[tr14, 500], [[-0.02, -0.03, 0], 500]]) {
@@ -857,20 +946,21 @@ MODELS.carina = (m) => {
       m.star(c[0] + dx * r, c[1] + dy * r, c[2] + dz * r, m.starColor(0.25), 0.003, 0.4 + 0.8 * m.r());
     }
   }
+  fieldStars(m, 5000);
 };
 
 MODELS.crab = (m) => {
   // semi-axes: long along local y (turned to position angle 125° on the sky)
   const A = [0.68, 1.0, 0.68];
   // blue synchrotron glow filling the inside
-  for (let i = 0; i < 16000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(16000); i++) {
     const [dx, dy, dz] = m.dir();
     const s = Math.cbrt(m.r()) * 0.85;
     const x = dx * A[0] * s, y = dy * A[1] * s, z = dz * A[2] * s;
     const w = (1 - (s / 0.85) ** 2) * (0.2 + 0.8 * smooth(-0.4, 0.4, fbm(x * 4, y * 4, z * 4, 4, 91)));
     if (m.r() > w) continue;
     m.glow(x, y, z, m.jitter(mix(COL.sync, COL.white, 0.25), 0.1), 0.05 + 0.05 * m.r(), 0.2);
-  }
+  } });
   // the cage of filaments
   for (let f = 0; f < 300; f++) {
     let [x, y, z] = m.dir();
@@ -896,15 +986,16 @@ MODELS.crab = (m) => {
   }
   // the pulsar and its wind: a small ring and jets
   m.star(0, 0, 0, [0.9, 0.95, 1], 0.012, 3);
-  for (let i = 0; i < 900; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(900); i++) {
     const a = m.r() * TAU, r = 0.05 + m.g() * 0.006;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     m.glow(x, z * 0.4, z, m.jitter(mix(COL.sync, COL.white, 0.5), 0.1), 0.008, 0.6);
-  }
-  for (let i = 0; i < 300; i++) {
+  } });
+  m.gas(() => { for (let i = 0; i < m.n(300); i++) {
     const t = m.u(-0.09, 0.09);
     m.glow(m.g() * 0.004, t, -t * 0.4 + m.g() * 0.004, COL.sync, 0.006, 0.6);
-  }
+  } });
+  fieldStars(m, 1800);
 };
 
 MODELS.ring = (m) => {
@@ -918,43 +1009,44 @@ MODELS.ring = (m) => {
   const gold = [0.95, 0.78, 0.5];
   const grad = (t) => (t < 0.35 ? mix(COL.heii, COL.oiii, t / 0.35) : t < 0.58 ? mix(COL.oiii, gold, (t - 0.35) / 0.23)
     : mix(gold, COL.nii, Math.min(1, (t - 0.58) / 0.22)));
-  for (let i = 0; i < 46000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(46000); i++) {
     const a = m.r() * TAU;
-    const t = clamp01(0.5 + m.g() * 0.24);
-    const rr = (0.34 + 0.5 * t) * (1 + 0.08 * fbm(Math.cos(a) * 3, Math.sin(a) * 3, t * 2, 3, 101)) * (1 + 0.1 * Math.cos(2 * a));
+    const t = clamp01(0.5 + m.g() * 0.2);
+    const rr = (0.4 + 0.4 * t) * (1 + 0.07 * fbm(Math.cos(a) * 3, Math.sin(a) * 3, t * 2, 3, 101)) * (1 + 0.1 * Math.cos(2 * a));
     const h = m.g() * (0.12 + 0.2 * t); // the barrel flares a little towards its outer edge
     const p = toWorld(Math.cos(a) * rr, Math.sin(a) * rr, h);
     const tex = 0.55 + 0.45 * smooth(-0.3, 0.3, fbm(p[0] * 9, p[1] * 9, p[2] * 9, 3, 103));
     m.glow(...p, m.jitter(grad(t), 0.06), 0.014 + 0.016 * m.r(), 0.62 * (0.4 + 0.6 * smooth(0.15, 0.6, t)) * tex);
-  }
+  } });
   // faint caps of the barrel, and pale blue gas inside
-  for (let i = 0; i < 6000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(6000); i++) {
     const [dx, dy, dz] = m.dir();
     const s = 0.6 + 0.1 * m.r();
     m.glow(...toWorld(dx * s, dy * s, dz * s * 1.4), m.jitter(mix(COL.oiii, COL.heii, 0.5), 0.08), 0.03 + 0.02 * m.r(), 0.06);
-  }
-  for (let i = 0; i < 5000; i++) {
-    const r = Math.sqrt(m.r()) * 0.36, a = m.r() * TAU;
-    m.glow(...toWorld(Math.cos(a) * r, Math.sin(a) * r, m.g() * 0.2), m.jitter(mix(COL.heii, COL.oiii, 0.25), 0.08), 0.04 + 0.02 * m.r(), 0.07);
-  }
+  } });
+  m.gas(() => { for (let i = 0; i < m.n(5000); i++) {
+    const r = Math.sqrt(m.r()) * 0.42, a = m.r() * TAU;
+    m.glow(...toWorld(Math.cos(a) * r, Math.sin(a) * r, m.g() * 0.2), m.jitter(mix(COL.heii, COL.oiii, 0.35), 0.08), 0.04 + 0.02 * m.r(), 0.2);
+  } });
   // dark knots on the inner edge, and the faint outer halo of loops
   for (let i = 0; i < 3000; i++) {
     const a = m.r() * TAU, r = 0.4 + 0.08 * m.r();
     m.dust(...toWorld(Math.cos(a) * r, Math.sin(a) * r, m.g() * 0.08), DUST, 0.007, 0.35);
   }
-  for (let i = 0; i < 7000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(7000); i++) {
     const a = m.r() * TAU;
     const petal = 0.86 + 0.12 * Math.abs(Math.sin(a * 5)) + m.g() * 0.025;
-    m.glow(Math.cos(a) * petal, Math.sin(a) * petal, m.g() * 0.25, m.jitter(mix(COL.nii, COL.ha, 0.4), 0.1), 0.025 + 0.02 * m.r(), 0.06);
-  }
+    m.glow(Math.cos(a) * petal, Math.sin(a) * petal, m.g() * 0.25, m.jitter(mix(COL.nii, COL.ha, 0.4), 0.1), 0.025 + 0.02 * m.r(), 0.03);
+  } });
   m.star(0, 0, 0, [0.85, 0.9, 1], 0.004, 1.2);
+  fieldStars(m, 1200);
 };
 
 MODELS.helix = (m) => {
   // inner disc ring, nearly face-on, and an outer ring tipped well over
   const ring = (n, r0, r1, tilt, rot, colIn, colOut, alpha) => {
     const ct = Math.cos(tilt), st = Math.sin(tilt), cr = Math.cos(rot), sr = Math.sin(rot);
-    for (let i = 0; i < n; i++) {
+    m.gas(() => { for (let i = 0; i < m.n(n); i++) {
       const a = m.r() * TAU;
       const t = clamp01(0.45 + m.g() * 0.25);
       const r = (r0 + (r1 - r0) * t) * (1 + 0.1 * fbm(Math.cos(a) * 3, Math.sin(a) * 3, r0 * 7, 3, 111));
@@ -962,25 +1054,28 @@ MODELS.helix = (m) => {
       [y, z] = [y * ct - z * st, y * st + z * ct];
       [x, y] = [x * cr - y * sr, x * sr + y * cr];
       m.glow(x, y, z, m.jitter(mix(colIn, colOut, t), 0.1), 0.016 + 0.022 * m.r(), alpha);
-    }
+    } });
   };
   ring(26000, 0.28, 0.62, 15 * DEG, 0, mix([1.0, 0.72, 0.32], COL.ha, 0.35), COL.haDeep, 0.38);
   ring(14000, 0.62, 0.98, 62 * DEG, 25 * DEG, COL.ha, COL.haDeep, 0.28);
   // the teal heart
-  for (let i = 0; i < 10000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(10000); i++) {
     const r = Math.sqrt(m.r()) * 0.38;
     const a = m.r() * TAU;
     m.glow(Math.cos(a) * r, Math.sin(a) * r, m.g() * 0.08, m.jitter(mix(COL.oiii, COL.heii, 0.45 * (1 - r / 0.38)), 0.08), 0.035 + 0.02 * m.r(), 0.18);
-  }
-  // cometary knots: red heads with faint tails pointing away from the star
-  for (let i = 0; i < 2000; i++) {
+  } });
+  // cometary knots: red heads with faint tails pointing away from the star (each one a fixed structure,
+  // so detailed bakes sharpen them rather than adding more)
+  for (let i = 0; i < 1500; i++) {
     const a = m.r() * TAU, r = 0.28 + Math.pow(m.r(), 1.5) * 0.3;
     const x = Math.cos(a) * r, y = Math.sin(a) * r, z = m.g() * 0.05;
-    m.dust(x, y, z, DUST, 0.004, 0.6);
-    m.glow(x - Math.cos(a) * 0.003, y - Math.sin(a) * 0.003, z, mix(COL.ha, COL.white, 0.25), 0.004, 0.9);
-    for (let t = 1; t <= 4; t++) m.glow(x + Math.cos(a) * 0.01 * t, y + Math.sin(a) * 0.01 * t, z, COL.ha, 0.005, 0.3 / t);
+    const s = 0.7 + 0.6 * m.r();
+    m.dust(x, y, z, DUST, 0.009 * s, 0.8);
+    m.glow(x - Math.cos(a) * 0.005 * s, y - Math.sin(a) * 0.005 * s, z, mix(COL.ha, COL.white, 0.3), 0.009 * s, 2.2);
+    for (let t = 1; t <= 5; t++) m.glow(x + Math.cos(a) * 0.009 * t * s, y + Math.sin(a) * 0.009 * t * s, z, COL.ha, 0.01 * s, 0.7 / t);
   }
   m.star(0, 0, 0, [0.85, 0.9, 1], 0.006, 1.6);
+  fieldStars(m, 2000);
 };
 
 // Point-in-polygon and distance to the outline, for the Horsehead's silhouette.
@@ -1006,57 +1101,59 @@ function polyDist(poly, x, y) {
 MODELS.horsehead = (m) => {
   // Drawn as the familiar picture: the dark cloud below, glowing IC 434 above, lit from the top by
   // Sigma Orionis. The catalogue entry turns it on the sky so the light comes from the west.
-  const S = 1.35;
+  const S = 1.45;
   const head = [
-    [-0.19, -0.3], [-0.2, -0.15], [-0.215, 0.0], [-0.22, 0.1], [-0.2, 0.18], [-0.16, 0.24], [-0.125, 0.27], [-0.115, 0.37],
-    [-0.085, 0.29], [-0.06, 0.345], [-0.03, 0.27], [0.04, 0.2], [0.1, 0.13], [0.15, 0.06], [0.195, 0.0], [0.215, -0.045],
-    [0.195, -0.085], [0.14, -0.085], [0.08, -0.06], [0.03, -0.05], [0.0, -0.1], [-0.02, -0.18], [-0.01, -0.3],
-  ].map(([x, y]) => [x * S, y * S + 0.04]);
+    [-0.1, -0.32], [-0.085, -0.16], [-0.1, -0.04], [-0.13, 0.05], [-0.14, 0.15], [-0.115, 0.22], [-0.1, 0.3], [-0.075, 0.235],
+    [-0.045, 0.285], [-0.02, 0.215], [0.05, 0.18], [0.12, 0.115], [0.18, 0.04], [0.225, -0.015], [0.235, -0.06], [0.21, -0.095],
+    [0.16, -0.095], [0.11, -0.075], [0.07, -0.085], [0.045, -0.13], [0.035, -0.2], [0.05, -0.32],
+  ].map(([x, y]) => [x * S, y * S + 0.06]);
   const edge = (x) => -0.3 + 0.07 * fbm(x * 4, 0, 0, 3, 121) + 0.04 * Math.sin(x * 2.5);
   // IC 434: a glowing curtain behind, brighter towards the star, streaked by its light
-  for (let i = 0; i < 42000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(42000); i++) {
     const x = m.u(-1, 1), y = m.u(-0.4, 1), z = -0.32 + m.g() * 0.08;
-    const streak = 0.35 + 0.65 * smooth(-0.3, 0.3, fbm(x * 9, y * 1.2, z * 4, 4, 123));
+    const streak = 0.4 + 0.6 * smooth(-0.3, 0.3, fbm(x * 14, y * 1.1, z * 4, 4, 123));
     const w = smooth(-0.4, 0.55, y) * streak * smooth(1.05, 0.5, Math.hypot(x * 0.95, (y - 0.25) * 1.15));
     if (m.r() > w) continue;
-    const big = m.r() < 0.45;
-    m.glow(x, y, z, m.jitter(mix(COL.ha, COL.haDeep, 0.35 * m.r()), 0.1), big ? 0.07 + 0.03 * m.r() : 0.025 + 0.02 * m.r(), big ? 0.14 : 0.35);
-  }
+    const big = m.r() < 0.6;
+    m.glow(x, y, z, m.jitter(mix(COL.ha, COL.haDeep, 0.3 * m.r()), 0.06), big ? 0.07 + 0.03 * m.r() : 0.02 + 0.015 * m.r(), big ? 0.12 : 0.3);
+  } });
   // the dark cloud L1630, with a bright rim where the light grazes its top
-  for (let i = 0; i < 16000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(16000); i++) {
     const x = m.u(-1, 1), y = edge(x) - Math.abs(m.g()) * 0.38, z = m.g() * 0.12;
     if (m.r() > smooth(1.05, 0.6, Math.hypot(x, (y + 0.3) * 0.9))) continue;
     m.dust(x, y, z, DUST, 0.05 + 0.03 * m.r(), 0.8);
-  }
-  for (let i = 0; i < 4000; i++) {
+  } });
+  m.gas(() => { for (let i = 0; i < m.n(4000); i++) {
     const x = m.u(-1, 1);
     m.glow(x, edge(x) + 0.01 + Math.abs(m.g()) * 0.012, m.g() * 0.08, mix(COL.ha, COL.sii, 0.3), 0.014, 0.45 * smooth(1, 0.7, Math.abs(x)));
-  }
+  } });
   // the head and neck, in silhouette, rimmed with light along the top
-  m.volume(22000, 0.33, 0.47, 0.1, (x, y, z) => {
+  m.volume(26000, 0.36, 0.5, 0.1, (x, y, z) => {
     if (!insidePoly(head, x, y)) return 0;
     const d = polyDist(head, x, y);
     const n = fbm(x * 12, y * 12, z * 12, 3, 125);
     return smooth(-0.004, 0.02, d + 0.01 * n) * Math.exp(-(z * z) / 0.005);
   }, (x, y, z) => m.dust(x, y, z, DUST, 0.014 + 0.01 * m.r(), 0.95), 0, 0.08, 0);
-  for (let i = 0; i < 6000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(6000); i++) {
     const k = Math.floor(m.r() * head.length);
     const [ax, ay] = head[k], [bx, by] = head[(k + 1) % head.length];
     const t = m.r();
     const x = ax + (bx - ax) * t, y = ay + (by - ay) * t;
-    const nx = by - ay, ny = -(bx - ax);
+    // the outline runs clockwise, so this normal points out of the head
+    const nx = -(by - ay), ny = bx - ax;
     const nl = Math.hypot(nx, ny);
-    if (ny / nl < -0.35 || y < edge(x) + 0.02) continue; // only edges facing the light
-    m.glow(x + (nx / nl) * 0.009, y + (ny / nl) * 0.009, m.g() * 0.03, mix(COL.ha, COL.sii, 0.35), 0.013, 0.75);
-  }
+    if (ny / nl < 0.2 || y < edge(x) + 0.02) continue; // only edges facing the light
+    m.glow(x + (nx / nl) * 0.008, y + (ny / nl) * 0.008, m.g() * 0.03, mix(COL.ha, COL.sii, 0.35), 0.01, 0.75 * (0.35 + 0.65 * smooth(-0.4, 0.4, fbm(x * 9, y * 9, 0, 3, 126))));
+  } });
   // NGC 2023: a blue reflection nebula round a bright young star, in front of the dark cloud
-  for (let i = 0; i < 3000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(3000); i++) {
     const r = Math.abs(m.g()) * 0.09;
     const [dx, dy, dz] = m.dir();
     m.glow(-0.55 + dx * r, -0.6 + dy * r, 0.22 + dz * r, m.jitter(COL.refl, 0.1), 0.025 + 0.025 * m.r(), 0.3);
-  }
+  } });
   m.star(-0.55, -0.6, 0.22, [0.8, 0.86, 1], 0.012, 2.2);
   for (let i = 0; i < 500; i++) m.star(m.u(-1, 1), m.u(-1, 1), m.u(-0.2, 0.4), m.starColor(0.5), 0.004, 0.25 + 0.6 * m.r());
+  fieldStars(m, 2500);
 };
 
 MODELS.veil = (m) => {
@@ -1094,13 +1191,14 @@ MODELS.veil = (m) => {
       (q) => 0.38 * bright * (0.35 + 0.65 * mixO) * limb(q), 6);
   }
   // a faint glow over the whole bubble
-  for (let i = 0; i < 6000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(6000); i++) {
     const [x, y, z] = m.dir();
     const r = 0.75 + 0.2 * m.r();
     m.glow(x * r, y * r, z * r, m.jitter(mix(COL.ha, COL.oiii, m.r()), 0.1), 0.07, 0.035);
-  }
+  } });
   m.star(0.82, -0.12, 0.15, [1, 0.85, 0.6], 0.01, 1.8); // 52 Cygni, in front of the Witch's Broom
   for (let i = 0; i < 700; i++) m.star(m.u(-1.1, 1.1), m.u(-1.1, 1.1), m.u(-1, 1), m.starColor(0.5), 0.004, 0.2 + 0.6 * m.r());
+  fieldStars(m, 3500);
 };
 
 // ---------------------------------------------------------------- star clusters
@@ -1124,14 +1222,14 @@ MODELS.pleiades = (m, entry) => {
   const streak = [Math.cos(-0.6), Math.sin(-0.6)];
   for (const [name, n, s, dy] of [['Merope', 9000, 0.12, -0.05], ['Maia', 5500, 0.09, 0], ['Electra', 4500, 0.08, 0], ['Alcyone', 5000, 0.09, 0], ['Taygeta', 3000, 0.07, 0], ['Atlas', 2500, 0.06, 0]]) {
     const c = stars[name];
-    for (let i = 0; i < n; i++) {
+    m.gas(() => { for (let i = 0; i < m.n(n); i++) {
       const a = m.g() * s * 1.5, b = m.g() * s * 0.8;
       const x = c[0] + a * streak[0] - b * streak[1], y = c[1] + dy + a * streak[1] + b * streak[0];
       const z = c[2] + m.g() * s * 0.5;
       const wisp = ridge((x * streak[1] - y * streak[0]) * 14, (x * streak[0] + y * streak[1]) * 2, z * 4, 3, 141);
-      if (m.r() < 0.35) m.glow(x, y, z, m.jitter(COL.refl, 0.06), 0.04 + 0.03 * m.r(), 0.1);
-      else if (m.r() < smooth(0.35, 0.85, wisp)) m.glow(x, y, z, m.jitter(COL.refl, 0.08), 0.01 + 0.012 * m.r(), 0.32);
-    }
+      if (m.r() < 0.3) m.glow(x, y, z, m.jitter(COL.refl, 0.06), 0.04 + 0.03 * m.r(), 0.045);
+      else if (m.r() < smooth(0.45, 0.9, wisp)) m.glow(x, y, z, m.jitter(COL.refl, 0.08), 0.008 + 0.01 * m.r(), 0.4);
+    } });
   }
   for (let i = 0; i < 1100; i++) {
     const r = plummer(m, 0.25, 2.0);
@@ -1142,11 +1240,11 @@ MODELS.pleiades = (m, entry) => {
 };
 
 MODELS.omegaCen = (m) => {
-  for (let i = 0; i < 16000; i++) {
+  m.gas(() => { for (let i = 0; i < m.n(16000); i++) {
     const r = plummer(m, 0.14, 1);
     const [dx, dy, dz] = m.dir();
     m.glow(dx * r, dy * r * 0.93, dz * r, m.jitter(mix(COL.old, COL.disc, 0.3), 0.08), 0.03 + 0.08 * r, 0.13);
-  }
+  } });
   for (let i = 0; i < 45000; i++) {
     const r = plummer(m, 0.15, 1);
     const [dx, dy, dz] = m.dir();
@@ -1157,12 +1255,12 @@ MODELS.omegaCen = (m) => {
 };
 
 // Builds the particle layers for one catalogue entry.
-export function buildModel(entry, ctx) {
+export function buildModel(entry, ctx, k = 1) {
   const fn = MODELS[entry.model];
   if (!fn) throw new Error(`No model for ${entry.id}`);
   let seed = 0;
   for (let i = 0; i < entry.id.length; i++) seed = Math.imul(seed ^ entry.id.charCodeAt(i), 16777619) + 7;
-  const m = new Model(seed, ctx);
+  const m = new Model(seed, ctx, k);
   fn(m, entry);
   return m.build();
 }

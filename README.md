@@ -19,7 +19,7 @@ There is no build step, framework or backend. You need a static file server and 
 - **Eclipses and shadows.** Moons cast shadows on planets, planets eclipse their moons, Saturn's rings shadow the planet, and the planet shadows its rings.
 - **Posters of any date.** A birthday, a wedding, the day you met: the poster studio draws every planet where it really was, rendered by the 3D engine and lit by the Sun, plus that night's Moon phase, ready to print at 18 × 24 in. An optional deep-sky background puts the real Milky Way, bright stars and nebulae behind it, projected so the ecliptic lands on the poster's constellation ring.
 - **Spacetime curvature.** One toggle shows general relativity at work: a grid that sinks into each world's gravity well, shaped by its real mass, and starlight bending around planets into Einstein rings.
-- **Galaxies and nebulae you can fly to.** 20 deep-sky objects, built in 3D at their real positions, distances and sizes: the Andromeda, Triangulum, Whirlpool, Sombrero and Cigar galaxies, Messier 87, Centaurus A, the Large Magellanic Cloud and our own Milky Way seen from outside; the Orion, Eagle, Lagoon, Carina, Crab, Ring, Helix, Horsehead and Veil nebulae; the Pleiades and Omega Centauri. Nebulae glow in the colours of their emission lines, dust lanes and pillars stand in silhouette, and each object has highlights to fly in close to, such as the Pillars of Creation.
+- **Galaxies and nebulae you can fly to.** 20 deep-sky objects, built as 3D volumes of glowing gas and dust at their real positions, distances and sizes: the Andromeda, Triangulum, Whirlpool, Sombrero and Cigar galaxies, Messier 87, Centaurus A, the Large Magellanic Cloud and our own Milky Way seen from outside; the Orion, Eagle, Lagoon, Carina, Crab, Ring, Helix, Horsehead and Veil nebulae; the Pleiades and Omega Centauri. Nebulae glow in the colours of their emission lines, dust lanes and pillars stand in silhouette, fine wisps and filaments stay sharp as you fly in, and each object has highlights to fly in close to, such as the Pillars of Creation.
 
 ---
 
@@ -295,19 +295,23 @@ Twenty deep-sky objects (`js/deepsky-data.js`) are real places you can fly to, n
 
 **One scene in light-years.** Positions stay in kilometres from the Sun in 64-bit numbers, like the planets. Each frame `DeepSky.update()` subtracts the ship's position and divides by a light-year, so the GPU sees the Orion Nebula 1,344 units away rather than 1.3 × 10¹⁶ km. The objects get their own camera (same orientation and field of view as the cockpit) and draw between the sky and the Solar System.
 
-**Models made of soft particles.** `js/deepsky-models.js` builds each object procedurally from a seeded random generator, in three layers:
+**Models built from particles.** `js/deepsky-models.js` builds each object procedurally from a seeded random generator as three sets of soft particles: glow (gas and unresolved starlight), dust and stars. Shapes follow the real objects: logarithmic spiral arms with dust on their inner edges and pink star-forming knots along them (Andromeda's ring of star formation, the Whirlpool's arm reaching its companion NGC 5195, Triangulum's patchy arms and NGC 604), Hernquist-profile bulges and elliptical galaxies, a dusty ring for the Sombrero, a red superwind for the Cigar Galaxy, the jet of M87, the warped dust band of Centaurus A, the Orion Nebula's bowl-shaped cavity opening towards us, pillars that are dark inside, with a bright skin of ionised gas on the heads and edges that face their star cluster, the Horsehead in silhouette with its lit mane, the Helix Nebula's cometary knots, the Crab's cage of filaments around a blue synchrotron glow, the Ring Nebula's barrel seen end-on, the Veil's shock filaments brightest where we see them edge-on, and the Pleiades' blue reflection nebula round its real bright stars. Nebulae also get a field of stars through and around them, most of them faint, as in any photograph of one.
 
-| Layer | Blending | What it draws |
+**Gas and dust as volumes.** Drawn as hundreds of thousands of sprites, gas looks grainy up close. Instead, a background worker (`js/deepsky-worker.js`, `js/deepsky-bake.js`) bakes each model into a 3D texture: emission in RGB, dust in alpha, stored as cube roots in 8 bits for a wide dynamic range. Every particle is a gaussian blob; blobs are splatted into a pyramid of grids, one per octave of size, which are blurred and added back up into the finest grid, so a blob's size costs nothing. The same model can be sampled any number of times more densely: structure (knot positions, filament paths, stars) comes from one random stream and the particles that fill it in from another, so a denser bake has exactly the same shapes, only smoother.
+
+| Bake | When | Size |
 | --- | --- | --- |
-| Glow | Added | Gas and unresolved starlight: spiral arms, bulges, nebula walls, filaments |
-| Dust | Multiplied (`dst × (1 − src)`) | Absorbs whatever was drawn behind it, a little more blue than red, so dust lanes, pillars and the Horsehead stand out in silhouette and redden the light |
-| Stars | Added | Sharp points that stop growing at a few pixels, so star clusters stay crisp up close |
+| Small | Every object, a few seconds after the planets load | about 160,000 voxels |
+| Detailed | What you are visiting, heading to, or close to (the three most recent are kept) | about 4 million voxels (2 million on phones) |
+| Close-up | A region around the point you orbit once you are within about one object radius of it, such as the Pillars of Creation | about 2.4 million voxels, several times finer |
 
-Shapes follow the real objects: logarithmic spiral arms with dust on their inner edges and pink star-forming knots along them (Andromeda's ring of star formation, the Whirlpool's arm reaching its companion NGC 5195, Triangulum's patchy arms and NGC 604), Hernquist-profile bulges and elliptical galaxies, a dusty ring for the Sombrero, a red superwind for the Cigar Galaxy, the jet of M87, the warped dust lane of Centaurus A, the Orion Nebula's bowl-shaped cavity opening towards us, pillars that are dark inside and lit on the side facing their star cluster, the Crab's cage of filaments around a blue synchrotron glow, the Ring Nebula's barrel seen end-on, the Veil's shock filaments brightest where we see them edge-on, and the Pleiades' blue reflection nebula round its real bright stars.
+**Ray-marching.** Each volume is a box drawn from the inside out. The fragment shader (`VOL_FRAG`) marches through it in the object's own frame, in radii, so it is as precise for Andromeda as for the Ring Nebula: emission is added, and dust dims everything behind it, more in blue than red. Steps are most of a voxel near the camera and grow with distance, where a pixel covers more; empty space is skipped using a coarse mip level, and distant objects are sampled from blurrier mips instead of aliasing. Fine structure beyond the texture's resolution comes from a tiling noise texture: the lookup is nudged by low-frequency noise (domain warping, which turns round blobs into wisps), then density is multiplied by log-normal turbulence, `exp(s·z − s²/2)`, which keeps the average brightness while adding contrast at every scale, the way turbulent interstellar gas is distributed. In a close-up the noise is scaled down with the finer voxels, so it keeps adding detail rather than blotches. Faint dust fringes are thinned so dark clouds have crisp edges.
+
+The volumes render into an off-screen half-float target, at a resolution that adapts to the frame rate, and are added to the screen through a soft photographic shoulder (`1 − e^(−x)`), with an automatic exposure that stops down only when you are inside something bright. Stars stay as crisp points, each dimmed and reddened by the dust between it and the camera; the brightest get a soft halo and faint diffraction spikes.
 
 **Colours from emission lines.** Nebulae are coloured by the light their gas gives off, as in true-colour images: hydrogen-alpha rose red, doubly ionised oxygen teal, ionised nitrogen and sulphur deep red and orange, ionised helium blue, and starlight scattered by dust blue. Hot inner zones near the ionising stars take the oxygen and helium colours, cooler outer zones the hydrogen and nitrogen ones.
 
-**True size and surface brightness at any distance.** A particle's sprite is sized in the object's own units, so the object keeps its real angular size. When a sprite would be smaller than about a pixel it is drawn at that pixel size but dimmer, keeping its total light, so a galaxy fades into a faint smudge the way it should rather than vanishing. Particles are stored in shuffled order, so drawing only the first few thousand is a fair sample: small objects on screen draw fewer, brighter particles. Sprites that would fill the view fade out, so you can fly into a nebula without the nearest wisps fogging the screen.
+**True size and surface brightness at any distance.** Each object keeps its real angular size, and the volume keeps its total light however small it gets, so a distant galaxy fades into a faint smudge the way it should rather than vanishing.
 
 **Leaving home.** As the ship travels out, the bright stars and constellation figures fade within a few hundred light-years (they are our neighbours), the Solar System stops drawing beyond about 2,000 AU and the Sun becomes a single labelled star, and between 6,000 and 50,000 light-years the Milky Way panorama hands over to a 3D model of the Milky Way: a barred spiral with four arms, the Sun in the Orion Spur 26,670 light-years from the centre, oriented with the real galactic pole and centre.
 
@@ -698,6 +702,7 @@ The ship moves at `speed × time-lapse` km per second in a straight line, and th
 | Galaxy, nebula and cluster positions, distances and sizes | Real (J2000 positions; published distances and sizes) |
 | Orientation of disc galaxies on the sky | Real position angles and inclinations; which side of the disc is nearer is not always known |
 | Shapes and colours of galaxies, nebulae and clusters | **Procedural 3D models** of their known structure, coloured by their emission lines; the depth structure of most nebulae is not known, so it is plausible rather than measured |
+| Fine structure of gas and dust below the baked resolution | **Procedural** turbulence, fixed to each object |
 | Milky Way seen from outside | **Model**: a barred four-arm spiral with the Sun in the Orion Spur at the real distance from the centre |
 | Sky seen from other stars | The Milky Way panorama is the view from the Sun; it fades out as you leave the galaxy |
 
@@ -715,13 +720,16 @@ js/bodies.js          SolarSystem class: meshes, materials, rings, atmospheres, 
                       per-frame camera-relative placement and shader inputs
 js/shaders.js         All GLSL: noise, craters, surfaces, clouds, Sun, atmospheres, rings, sky,
                       stars, lensing, curvature sheet, orbits, markers, glare, warp streaks,
-                      deep-sky particles
+                      deep-sky volumes and stars
 js/sky.js             Milky Way sphere, star points (and their lensed inner images), constellation
                       lines, sky projection
 js/stars.js           Bright-star catalogue and constellation figures
 js/deepsky-data.js    Galaxies, nebulae and clusters: positions, distances, sizes, orientations, facts
 js/deepsky-models.js  Procedural 3D particle models of every deep-sky object
-js/deepsky.js         DeepSky class: light-year scene, placement, level of detail, labels and fades
+js/deepsky-bake.js    Splats a model into a 3D volume texture; the tiling detail noise
+js/deepsky-worker.js  Background thread that builds and bakes the models
+js/deepsky.js         DeepSky class: light-year scene, volume levels of detail, ray-marching pass,
+                      stars, labels and fades
 js/controls.js        CameraRig: orbit (in a deep-sky object's own frame), log-altitude zoom, free look,
                       tap/double-tap, zoom API
 js/travel.js          Flight planning, cinematic log profile, real-time mode
@@ -761,7 +769,7 @@ Optional fields include `e` (eccentricity), `irregular: true` (inclination measu
 
 ### Add a galaxy or nebula
 
-Append an entry to `DSO` in `js/deepsky-data.js` with its `ra`, `dec` (degrees), `dist` and `radius` (light-years), `kind` (`'galaxy'`, `'nebula'` or `'cluster'`), a `color` for its label, and `facts`, `blurb` and `features` like a planet's (features take `p: [x, y, z]` in the model's frame, in radii). Disc galaxies add `orient: { pa, incl }`. Then either reuse a model (`model: 'triangulum'`) or add one to `MODELS` in `js/deepsky-models.js`; the building blocks there (`spiral`, `ellipsoid`, `pillar`, `strand`, `blob`, `globulars`) cover most shapes. The destination menu, labels, flights and details panel pick it up automatically.
+Append an entry to `DSO` in `js/deepsky-data.js` with its `ra`, `dec` (degrees), `dist` and `radius` (light-years), `kind` (`'galaxy'`, `'nebula'` or `'cluster'`), a `color` for its label, and `facts`, `blurb` and `features` like a planet's (features take `p: [x, y, z]` in the model's frame, in radii). Disc galaxies add `orient: { pa, incl }`. Then either reuse a model (`model: 'triangulum'`) or add one to `MODELS` in `js/deepsky-models.js`; the building blocks there (`spiral`, `ellipsoid`, `pillar`, `strand`, `blob`, `globulars`, `fieldStars`) cover most shapes. Wrap particle loops for gas and dust in `m.gas(() => { for (let i = 0; i < m.n(count); i++) … })` so detailed bakes can sample them more densely. Brightness, turbulence and filaments are tuned per object in `LOOK` in `js/deepsky.js`. The destination menu, labels, flights and details panel pick it up automatically.
 
 ### Add a speed
 
@@ -797,7 +805,7 @@ solarVoyager.rig.setZoomFraction(0.9)            // zoom close to the surface
 - **Phones and tablets:** supported, with a touch layout. Very old mobile GPUs may skip the 8k textures automatically.
 - **Performance:** about 60 fps at 1440 × 900 on an Apple M4. The cost is mostly pixel shading. Band-limited noise stops evaluating octaves that would be smaller than a pixel, distant bodies cost almost nothing, and the device pixel ratio is capped at 2.
 - **Memory:** the first load fetches about 7 MB of textures. High-resolution maps load only for worlds you visit closely; the full set is about 34 MB.
-- **Deep-sky objects:** the 20 models (about 1.2 million particles in all) are generated in the browser, one per frame after the planets load, with no extra downloads. Objects that are small on screen draw a fraction of their particles, and sprites that would cover the screen fade out, which keeps flights through a nebula affordable on modest GPUs.
+- **Deep-sky objects:** the models are generated and baked into volume textures in a background worker, with no extra downloads: a small volume for each object a few seconds after the planets load, then a detailed one (about 1 to 2 seconds of work) for each object you head to. The volume pass ray-marches at a resolution that adapts to the frame rate, between about 0.2 and 2 million pixels, with fewer steps for objects that are small on screen. Volumes take about 80 MB of GPU memory at most, half that on phones.
 
 ---
 
