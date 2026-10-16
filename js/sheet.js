@@ -224,9 +224,19 @@ export class Sheet {
       if (e.key === 'Escape') { search.value = ''; this.renderResults(); search.blur(); }
     });
     $('sheet-search-clear').addEventListener('click', () => { search.value = ''; this.renderResults(); search.focus(); });
+    let lastTap = { id: null, t: 0 };
     const pick = (e) => {
       const b = e.target.closest('[data-world]');
       if (!b) return;
+      // double-tap a world to fly straight there
+      const now = performance.now();
+      if (lastTap.id === b.dataset.world && now - lastTap.t < 350) {
+        lastTap = { id: null, t: 0 };
+        this.snap('peek');
+        app.ui.flyTo(b.dataset.world);
+        return;
+      }
+      lastTap = { id: b.dataset.world, t: now };
       haptic('tap');
       app.setDestination(b.dataset.world, { fromSelect: true });
       if (e.currentTarget.id === 'sheet-results') {

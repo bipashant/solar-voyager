@@ -127,8 +127,15 @@ const app = {
     ui.showInfo(b, b === state.focus ? 'Current location' : 'Destination');
     ui.refreshTrip(true);
     if (!opts.fromSelect && b !== state.focus) {
-      ui.toast(`Destination set: <b>${b.name}</b>. Press Engage to fly there.`, 2600);
+      ui.toast(`Destination set: <b>${b.name}</b>. Press Engage, or double-click it, to fly there.`, 3000);
     }
+  },
+
+  // Tapping a world or its label: on phones the sheet header shows it (with Fly) and tucks down.
+  pickDestination(id) {
+    const phone = !!app.sheet?.mounted;
+    app.setDestination(id, { fromSelect: phone });
+    if (phone && app.sheet.detent !== 'peek') app.sheet.snap('peek');
   },
 
   tripDistance(b) {
@@ -307,7 +314,7 @@ rig.onTap = (x, y) => {
   const b = pick(x, y);
   if (b) {
     if (b === state.focus) ui.showInfo(b, 'Current location');
-    else app.setDestination(b.id, { fromSelect: !!app.sheet?.mounted }); // the sheet header says it; no toast
+    else app.pickDestination(b.id);
   } else if (isCompact()) {
     ui.closePeeks(); // on a phone, tapping empty space puts the panels away again
   }

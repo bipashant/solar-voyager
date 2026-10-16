@@ -580,12 +580,33 @@ export class UI {
   }
 
   // ---------------------------------------------------------------- labels
+  // A tap on a label picks that world; a second tap within 350 ms flies there. Counted by hand because
+  // iPhones never send dblclick for touches, so this way a mouse and a finger behave the same.
+  bindLabel(e, id) {
+    let last = 0;
+    e.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const now = performance.now();
+      if (now - last < 350) { last = 0; this.flyTo(id); return; }
+      last = now;
+      haptic('tap');
+      this.app.pickDestination(id);
+    });
+  }
+
+  flyTo(id) {
+    const { state, travel } = this.app;
+    if (travel.active) return;
+    if (state.destination?.id !== id) this.app.setDestination(id, { fromSelect: true });
+    if (this.app.state.destination === state.focus) return; // already here
+    this.app.engage();
+  }
+
   ensureBodyLabels(bodies) {
     const layer = $('labels');
     for (const b of bodies) {
       const e = el('div', `lbl ${b.kind === 'dwarf' ? 'planet' : b.kind}`, b.name);
-      e.addEventListener('click', (ev) => { ev.stopPropagation(); this.app.setDestination(b.id); });
-      e.addEventListener('dblclick', (ev) => { ev.stopPropagation(); this.app.setDestination(b.id); this.app.engage(); });
+      this.bindLabel(e, b.id);
       e.style.display = 'none';
       layer.append(e);
       this.labelEls.set(b, { e, w: 0, shown: false });
@@ -606,16 +627,14 @@ export class UI {
     for (const o of objects) {
       const e = el('div', `lbl dso ${o.kind}`, o.name);
       e.style.setProperty('--c', o.data.color);
-      e.addEventListener('click', (ev) => { ev.stopPropagation(); this.app.setDestination(o.id); });
-      e.addEventListener('dblclick', (ev) => { ev.stopPropagation(); this.app.setDestination(o.id); this.app.engage(); });
+      this.bindLabel(e, o.id);
       e.style.display = 'none';
       layer.append(e);
       this.deepEls.push({ o, e, w: 0, shown: false });
     }
     // the Sun, seen as a star from deep space
     const e = el('div', 'lbl star sunfar', 'Sun');
-    e.addEventListener('click', (ev) => { ev.stopPropagation(); this.app.setDestination('sun'); });
-    e.addEventListener('dblclick', (ev) => { ev.stopPropagation(); this.app.setDestination('sun'); this.app.engage(); });
+    this.bindLabel(e, 'sun');
     e.style.display = 'none';
     layer.append(e);
     this.sunFar = { e, shown: false };
