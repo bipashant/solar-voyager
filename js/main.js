@@ -10,6 +10,7 @@ import { Travel, arrivalDistance, setViewScale } from './travel.js';
 import { TextureStore } from './textures.js';
 import { UI } from './ui.js';
 import { PosterStudio } from './poster.js';
+import { Guide } from './guide.js';
 import { SPEEDS, TRAVEL_MODES, TIME_RATES } from './data.js';
 import { jdFromMs, DEG } from './ephemeris.js';
 import { fmtDuration } from './format.js';
@@ -314,6 +315,7 @@ rig.onDoubleTap = (x, y) => {
 
 window.addEventListener('keydown', (e) => {
   if (poster.isOpen) { if (e.key === 'Escape') poster.close(); return; }
+  if (guide.active && e.key === 'Escape') { guide.stop(); return; }
   if (e.target.closest && e.target.closest('input, select, textarea')) return;
   if (e.key === 'Escape') {
     if (!document.getElementById('help').hidden) ui.showHelp(false);
@@ -468,6 +470,9 @@ ui.showInfo(state.focus, 'Current location');
 // ---------------------------------------------------------------- poster studio
 const poster = new PosterStudio(app);
 app.openPoster = () => poster.open();
+const guide = new Guide(app);
+app.startTour = () => guide.start();
+app.guide = guide;
 
 // ---------------------------------------------------------------- loading
 manager.onProgress = (url, loaded, total) => ui.setLoader(loaded / Math.max(total, 1));
@@ -477,7 +482,7 @@ Promise.allSettled(jobs).then((results) => {
   ui.hideLoader();
   ui.loaded = true;
   if (failed) ui.toast(`${failed} map${failed > 1 ? 's' : ''} failed to load; those worlds use generated surfaces.`, 5000);
-  else ui.toast(ui.toggles.console
+  else if (!guide.maybeStart()) ui.toast(ui.toggles.console
     ? 'Pick a destination and speed below, then press <b>Engage</b>.'
     : 'Tap a world to choose it, then the <b>arrow</b> below to fly there. <b>View</b> brings back the rest.', 5000);
   if (location.hash === '#poster') poster.open(); // shareable link straight to the studio

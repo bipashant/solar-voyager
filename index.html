@@ -132,6 +132,7 @@
     <div class="tog-actions">
       <button class="menu-action" type="button" data-action="poster"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="2.5" width="12" height="15" rx="1.2"/><circle cx="10" cy="9" r="1.6"/><circle cx="10" cy="9" r="4.2"/><path d="M7 14.5h6"/></svg><span>Make a poster</span><kbd>P</kbd></button>
       <button class="menu-action" type="button" data-action="help"><span class="q" aria-hidden="true">?</span><span>Controls and help</span></button>
+      <button class="menu-action" type="button" data-action="tour"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M8 7l5 3-5 3z"/></svg><span>Guided tour</span></button>
       <button class="menu-action" type="button" data-action="fullscreen"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5"/></svg><span>Full screen</span></button>
     </div>
   </div>
@@ -250,6 +251,34 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
+<!-- Guided tour (js/guide.js): a spotlight, up to two fake touches, a scroll wheel and the step card -->
+<div id="guide" class="guide" hidden>
+  <div class="guide-spot" id="guide-spot" hidden></div>
+  <div class="guide-touch" id="guide-touch-a" hidden></div>
+  <div class="guide-touch" id="guide-touch-b" hidden></div>
+  <div class="guide-wheel" id="guide-wheel" hidden aria-hidden="true">
+    <svg viewBox="0 0 40 60"><rect x="4" y="4" width="32" height="52" rx="16"/><path class="w" d="M20 14v10"/></svg>
+    <span class="a up">▲</span><span class="a down">▼</span>
+  </div>
+  <div class="guide-card" id="guide-card" role="dialog" aria-labelledby="guide-title" aria-live="polite">
+    <div class="guide-top">
+      <span class="eyebrow" id="guide-step">Guided tour</span>
+      <button id="guide-close" class="icon-btn small" type="button" aria-label="End the tour">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8"/></svg>
+      </button>
+    </div>
+    <h3 id="guide-title"></h3>
+    <p id="guide-text"></p>
+    <p class="guide-try" id="guide-try"></p>
+    <div class="guide-actions">
+      <button id="guide-back" class="btn-ghost" type="button">Back</button>
+      <button id="guide-skip" class="btn-ghost" type="button">Skip</button>
+      <button id="guide-doit" class="btn-ghost" type="button">Do it for me</button>
+      <button id="guide-next" class="btn-engage" type="button">Next</button>
+    </div>
+  </div>
+</div>
+
 <div id="poster" class="modal poster-modal" hidden>
   <div class="poster-card" role="dialog" aria-modal="true" aria-labelledby="ps-title">
     <div class="ps-preview"><canvas id="ps-canvas" aria-label="Poster preview"></canvas></div>
@@ -326,7 +355,10 @@
     </div>
     <p class="help-note">Sizes and distances are to true scale, so most worlds are tiny dots until you get close, and the galaxies and nebulae are thousands to millions of light-years away. Planet positions follow the real date: Earth's day side and the Moon's phase match the sky right now. Cinematic flights compress time, and the ship clock shows how long the trip really takes at the speed you chose.</p>
     <p class="help-credit">Planet maps: Solar System Scope (CC BY 4.0), based on NASA imagery. Orbits: JPL approximate Keplerian elements. Moons without spacecraft maps are generated from their known colours and terrain. Galaxies, nebulae and clusters are 3D models built from their real positions, distances, sizes and shapes, coloured by the light their gas and stars give off.</p>
-    <button id="help-close" class="btn-engage" type="button"><span>Back to the cockpit</span></button>
+    <div class="help-actions">
+      <button class="btn-ghost" type="button" data-action="tour">Take the guided tour</button>
+      <button id="help-close" class="btn-engage" type="button"><span>Back to the cockpit</span></button>
+    </div>
   </div>
 </div>
 

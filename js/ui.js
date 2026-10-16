@@ -134,6 +134,7 @@ export class UI {
     const actions = {
       poster: () => this.app.openPoster?.(),
       help: () => this.showHelp(true),
+      tour: () => { this.showHelp(false); this.app.startTour?.(); },
       fullscreen: () => {
         try {
           if (document.fullscreenElement) document.exitFullscreen();
