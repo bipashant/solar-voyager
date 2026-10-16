@@ -541,8 +541,8 @@ export class SolarSystem {
       const angR = Math.asin(Math.min(1, b.maxRadius / Math.max(dist, b.maxRadius)));
       sc.r = angR * pxPerRad;
       if (!sc.behind) {
-        sc.x = (b.viewPos.x / -b.viewPos.z) * pxPerRad + viewport.x / 2;
-        sc.y = (-b.viewPos.y / -b.viewPos.z) * pxPerRad + viewport.y / 2;
+        sc.x = (b.viewPos.x / -b.viewPos.z) * pxPerRad + (viewport.cx ?? viewport.x / 2);
+        sc.y = (-b.viewPos.y / -b.viewPos.z) * pxPerRad + (viewport.cy ?? viewport.y / 2);
       }
       sc.onScreen = !sc.behind && sc.x > -sc.r - 50 && sc.x < viewport.x + sc.r + 50 && sc.y > -sc.r - 50 && sc.y < viewport.y + sc.r + 50;
     }

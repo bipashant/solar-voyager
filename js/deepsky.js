@@ -488,6 +488,10 @@ export class DeepSky {
       cam.aspect = viewport.x / viewport.y;
       cam.updateProjectionMatrix();
     }
+    const shift = viewport.y / 2 - (viewport.cy ?? viewport.y / 2);
+    const shiftX = (viewport.cx ?? viewport.x / 2) - viewport.x / 2;
+    if (shift > 0.5 || shiftX > 0.5) cam.setViewOffset(viewport.x, viewport.y, -shiftX, shift, viewport.x, viewport.y);
+    else if (cam.view?.enabled) cam.clearViewOffset();
     cam.updateMatrixWorld();
     const pxPerRad = viewport.y / (2 * Math.tan((fovDeg * DEG) / 2));
     this.uniforms.uPx.value = pxPerRad;
@@ -508,8 +512,8 @@ export class DeepSky {
       sc.inside = dist < o.radius;
       sc.r = Math.asin(Math.min(1, o.radius / Math.max(dist, o.radius))) * pxPerRad;
       if (!sc.behind) {
-        sc.x = (o.viewPos.x / -o.viewPos.z) * pxPerRad + viewport.x / 2;
-        sc.y = (-o.viewPos.y / -o.viewPos.z) * pxPerRad + viewport.y / 2;
+        sc.x = (o.viewPos.x / -o.viewPos.z) * pxPerRad + (viewport.cx ?? viewport.x / 2);
+        sc.y = (-o.viewPos.y / -o.viewPos.z) * pxPerRad + (viewport.cy ?? viewport.y / 2);
       }
       sc.onScreen = !sc.behind && sc.x > -sc.r - 50 && sc.x < viewport.x + sc.r + 50 && sc.y > -sc.r - 50 && sc.y < viewport.y + sc.r + 50;
 
@@ -576,8 +580,8 @@ export class DeepSky {
     const ss = this.sunScreen;
     ss.onScreen = _v.z < 0 && opt.sunStar > 0.3;
     if (_v.z < 0) {
-      ss.x = (_v.x / -_v.z) * pxPerRad + viewport.x / 2;
-      ss.y = (-_v.y / -_v.z) * pxPerRad + viewport.y / 2;
+      ss.x = (_v.x / -_v.z) * pxPerRad + (viewport.cx ?? viewport.x / 2);
+      ss.y = (-_v.y / -_v.z) * pxPerRad + (viewport.cy ?? viewport.y / 2);
       ss.onScreen = ss.onScreen && ss.x > -20 && ss.x < viewport.x + 20 && ss.y > -20 && ss.y < viewport.y + 20;
     }
   }

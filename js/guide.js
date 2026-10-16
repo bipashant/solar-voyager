@@ -31,8 +31,9 @@ export class Guide {
   // ---------------------------------------------------------------- the steps
   get steps() {
     const app = this.app, { state, rig, travel } = app;
-    const engageSel = !$('dock').hidden ? '#dock-go' : '#engage';
-    const engageName = engageSel === '#dock-go' ? 'the amber arrow' : 'Engage';
+    const sheet = document.body.classList.contains('has-sheet');
+    const engageSel = sheet ? '#sheet-fly' : !$('dock').hidden ? '#dock-go' : '#engage';
+    const engageName = engageSel === '#engage' ? 'Engage' : engageSel === '#sheet-fly' ? 'Fly' : 'the amber arrow';
     return this._steps ||= [
       {
         title: 'Welcome aboard',
@@ -86,7 +87,9 @@ export class Guide {
       },
       {
         title: 'You’re ready',
-        text: 'The eye hides every control for a clear view, and Poster makes a print of the sky on any date. Replay this tour any time from Help.',
+        text: document.body.classList.contains('has-sheet')
+          ? 'Pull the panel at the bottom up for search, every world, speeds and details. The eye hides everything for a clear view. Replay this tour from Layers.'
+          : 'The eye hides every control for a clear view, and Poster makes a print of the sky on any date. Replay this tour any time from Help.',
         target: '#btn-hide-ui',
         next: 'Start exploring',
       },
@@ -198,7 +201,9 @@ export class Guide {
     }
     // the card sits at the top, or at the bottom when the highlighted control is up there
     const card = $('guide-card');
-    card.classList.toggle('low', (!!r && r.top < window.innerHeight * 0.3) || this.app.travel.active);
+    // (phones keep it at the top: the bottom sheet and the Layers sheet live down there)
+    const phone = document.body.classList.contains('has-sheet');
+    card.classList.toggle('low', !phone && ((!!r && r.top < window.innerHeight * 0.3) || this.app.travel.active));
   }
 
   // ---------------------------------------------------------------- animation helpers

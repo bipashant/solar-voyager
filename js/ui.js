@@ -97,8 +97,10 @@ export class UI {
     // The View dropdown stays open while you flip several switches; a tap anywhere else closes it.
     $('btn-layers').addEventListener('click', () => { haptic('tap'); this.setMenu(!$('toggles').classList.contains('open')); });
     document.addEventListener('pointerdown', (e) => {
-      if (!$('toggles').contains(e.target)) this.setMenu(false);
+      // outside the menu, or on the dimmed backdrop behind the phone's Layers sheet
+      if (!$('toggles').contains(e.target) || e.target === $('toggles')) this.setMenu(false);
     });
+    $('tog-done').addEventListener('click', () => this.setMenu(false));
     $('btn-hide-ui').addEventListener('click', () => this.setChromeHidden(true));
     $('btn-show-ui').addEventListener('click', () => this.setChromeHidden(false));
     // In clear view the dock icons peek at a panel; otherwise they switch the panel itself on or off.
@@ -304,7 +306,8 @@ export class UI {
   // The dock shows in clear view, and whenever the flight console is closed so Engage stays one tap away.
   syncDock() {
     if (!$('dock')) return;
-    $('dock').hidden = !(this.uiHidden || !this.toggles.console);
+    // phones have the bottom sheet instead
+    $('dock').hidden = document.body.classList.contains('has-sheet') || !(this.uiHidden || !this.toggles.console);
     const shown = (w) => (this.uiHidden ? this.peeking(w) : this.toggles[w]);
     $('dock-info').setAttribute('aria-pressed', String(shown('info')));
     $('dock-console').setAttribute('aria-pressed', String(shown('console')));

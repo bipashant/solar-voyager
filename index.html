@@ -102,6 +102,7 @@
     <svg class="view-chev" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>
   </button>
   <div class="tog-group" id="tog-group" role="group" aria-label="View options">
+    <div class="tog-sheet-head"><span class="grab" aria-hidden="true"></span><b>Layers</b><button type="button" class="tog-done" id="tog-done">Done</button></div>
     <div class="tog-section">
       <div class="eyebrow">Solar System</div>
       <button class="tog" type="button" data-toggle="orbits" aria-pressed="true"><span class="tog-text"><b>Orbits</b><small>Paths of the planets and moons</small></span><i class="switch" aria-hidden="true"></i></button>
@@ -124,9 +125,9 @@
     </div>
     <div class="tog-section">
       <div class="eyebrow">Panels</div>
-      <button class="tog" type="button" data-toggle="info" aria-pressed="false"><span class="tog-text"><b>Details</b><small>Facts and live figures for the selected world</small></span><i class="switch" aria-hidden="true"></i></button>
-      <button class="tog" type="button" data-toggle="console" aria-pressed="true"><span class="tog-text"><b>Flight console</b><small>Destination, ship speed and Engage</small></span><i class="switch" aria-hidden="true"></i></button>
-      <button class="tog" type="button" data-toggle="clock" aria-pressed="true"><span class="tog-text"><b>Clock</b><small>Simulated date, time and speed</small></span><i class="switch" aria-hidden="true"></i></button>
+      <button class="tog wide-only" type="button" data-toggle="info" aria-pressed="false"><span class="tog-text"><b>Details</b><small>Facts and live figures for the selected world</small></span><i class="switch" aria-hidden="true"></i></button>
+      <button class="tog wide-only" type="button" data-toggle="console" aria-pressed="true"><span class="tog-text"><b>Flight console</b><small>Destination, ship speed and Engage</small></span><i class="switch" aria-hidden="true"></i></button>
+      <button class="tog wide-only" type="button" data-toggle="clock" aria-pressed="true"><span class="tog-text"><b>Clock</b><small>Simulated date, time and speed</small></span><i class="switch" aria-hidden="true"></i></button>
       <button class="tog" type="button" data-toggle="zoom" aria-pressed="true"><span class="tog-text"><b>Zoom</b><small>Zoom buttons and altitude</small></span><i class="switch" aria-hidden="true"></i></button>
     </div>
     <div class="tog-actions">
@@ -247,6 +248,49 @@
     <dt>Velocity</dt><dd id="flight-vel">—</dd>
   </dl>
   <div class="flight-progress"><div id="flight-bar"></div></div>
+</section>
+
+<!-- Phones: one draggable bottom sheet (js/sheet.js) with the destination, flight settings, details and time -->
+<section id="sheet" class="sheet" aria-label="Flight and details" hidden>
+  <button class="sheet-handle" id="sheet-handle" type="button" aria-label="Expand" aria-expanded="false"><span></span></button>
+  <div class="sheet-head" id="sheet-head">
+    <span class="sheet-swatch" id="sheet-swatch" aria-hidden="true"></span>
+    <div class="sheet-title">
+      <span class="eyebrow" id="sheet-role">Fly to</span>
+      <b id="sheet-name">—</b>
+      <span id="sheet-sub"></span>
+    </div>
+    <button id="sheet-fly" class="sheet-fly" type="button"><span>Fly</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5"/></svg></button>
+    <button id="sheet-abort" class="sheet-abort" type="button" aria-label="Abort flight" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>
+    <button id="sheet-where" class="sheet-where" type="button" hidden>Where to?</button>
+  </div>
+  <div class="sheet-progress" id="sheet-progress" hidden><i id="sheet-bar"></i></div>
+  <div class="sheet-body" id="sheet-body">
+    <div class="sheet-search">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/></svg>
+      <input id="sheet-search" type="search" placeholder="Search planets, moons and galaxies" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="Search destinations">
+      <button id="sheet-search-clear" type="button" aria-label="Clear search" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>
+    </div>
+    <div id="sheet-results" class="sheet-results" hidden></div>
+    <div id="sheet-worlds" class="sheet-worlds"></div>
+    <div class="sheet-group">
+      <div class="eyebrow">Flight</div>
+      <div class="sheet-list">
+        <label class="sheet-row"><span>Ship speed</span><span class="sheet-value" id="sheet-speed-val"></span><span class="chev" aria-hidden="true">›</span><span class="sheet-select" id="sheet-speed-slot"></span></label>
+        <label class="sheet-row"><span>Flight clock</span><span class="sheet-value" id="sheet-mode-val"></span><span class="chev" aria-hidden="true">›</span><span class="sheet-select" id="sheet-mode-slot"></span></label>
+      </div>
+      <div class="sheet-trip" id="sheet-trip-slot"></div>
+    </div>
+    <div class="sheet-group">
+      <div class="eyebrow" id="sheet-about-title">About</div>
+      <div id="sheet-about-slot" class="sheet-about"></div>
+    </div>
+    <div class="sheet-group">
+      <div class="eyebrow">Time</div>
+      <div id="sheet-time-slot" class="sheet-time"></div>
+    </div>
+    <button class="sheet-poster" type="button" data-action="poster"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="2.5" width="12" height="15" rx="1.2"/><circle cx="10" cy="9" r="1.6"/><circle cx="10" cy="9" r="4.2"/><path d="M7 14.5h6"/></svg><span><b>Make a poster</b><small>The solar system on any date, ready to print or share</small></span><span class="chev" aria-hidden="true">›</span></button>
+  </div>
 </section>
 
 <div id="toast" role="status" aria-live="polite"></div>

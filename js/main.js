@@ -11,6 +11,7 @@ import { TextureStore } from './textures.js';
 import { UI } from './ui.js';
 import { PosterStudio } from './poster.js';
 import { Guide } from './guide.js';
+import { Sheet } from './sheet.js';
 import { SPEEDS, TRAVEL_MODES, TIME_RATES } from './data.js';
 import { jdFromMs, DEG } from './ephemeris.js';
 import { fmtDuration } from './format.js';
@@ -29,6 +30,7 @@ try {
 const MAX_PR = Math.min(window.devicePixelRatio, 2);
 const MIN_PR = Math.min(MAX_PR, isMobile ? 1.25 : 1);
 let pixelRatio = MAX_PR;
+let viewShift = 0, viewShiftX = 0; // px the picture is slid up (or right) to clear the phone's sheet
 renderer.setPixelRatio(pixelRatio);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
@@ -144,6 +146,7 @@ const app = {
     });
     rig.enabled = false;
     haptic('engage');
+    app.sheet?.snap('peek'); // phones: get the sheet out of the way of the flight
     if (isCompact()) document.getElementById('info').classList.add('collapsed');
     ui.showFlight(true, target);
     ui.refreshTrip(true);
@@ -233,7 +236,7 @@ const app = {
     const v = p.clone().sub(camPos).applyMatrix4(camera.matrixWorldInverse);
     if (v.z >= 0) return null;
     const k = vp.y / (2 * Math.tan((camera.fov * DEG) / 2));
-    return { x: (v.x / -v.z) * k + vp.x / 2, y: (-v.y / -v.z) * k + vp.y / 2 };
+    return { x: (v.x / -v.z) * k + (vp.cx ?? vp.x / 2), y: (-v.y / -v.z) * k + (vp.cy ?? vp.y / 2) };
   },
 };
 
@@ -245,6 +248,7 @@ ui.syncSelects();
 
 function arrive(body, aborted = false, quiet = false) {
   state.focus = body;
+  app.sheet?.snap('peek');
   rig.syncFrom(body, camPos, camQuat);
   rig.enabled = true;
   ui.showFlight(false);
@@ -303,10 +307,12 @@ rig.onTap = (x, y) => {
   const b = pick(x, y);
   if (b) {
     if (b === state.focus) ui.showInfo(b, 'Current location');
-    else app.setDestination(b.id);
+    else app.setDestination(b.id, { fromSelect: !!app.sheet?.mounted }); // the sheet header says it; no toast
   } else if (isCompact()) {
     ui.closePeeks(); // on a phone, tapping empty space puts the panels away again
   }
+  // phones: a tap on the view tucks the sheet down so you can see (and fly to) what you picked
+  if (app.sheet?.mounted && app.sheet.detent !== 'peek') app.sheet.snap('peek');
 };
 rig.onDoubleTap = (x, y) => {
   const b = pick(x, y);
@@ -346,12 +352,32 @@ function resize() {
   camera.fov = w < 720 ? 62 : 50;
   camera.updateProjectionMatrix();
   viewport.set(w, h);
+  viewport.cy = h / 2 - viewShift;
+  viewport.cx = w / 2 + viewShiftX;
   const halfV = (camera.fov * DEG) / 2;
   const halfH = Math.atan(Math.tan(halfV) * camera.aspect);
   setViewScale(Math.max(1, Math.tan(25 * DEG) / Math.tan(Math.min(halfV, halfH))));
 }
 window.addEventListener('resize', resize);
 resize();
+
+// Phones: as the bottom sheet rises, slide the picture up so the world you're looking at stays centred in
+// the space above it (as maps apps do). Applied to every camera, and to the screen-position maths via cy.
+function applyViewShift() {
+  const c = sheet.cover();
+  const ty = Math.min(c.bottom / 2, window.innerHeight * 0.28);
+  const tx = Math.min(c.left / 2, window.innerWidth * 0.28);
+  if (Math.abs(ty - viewShift) < 0.5 && Math.abs(tx - viewShiftX) < 0.5) return;
+  viewShift = ty; viewShiftX = tx;
+  const w = window.innerWidth, h = window.innerHeight;
+  viewport.cy = h / 2 - viewShift;
+  viewport.cx = w / 2 + viewShiftX;
+  document.documentElement.style.setProperty('--view-shift', `${viewShift.toFixed(1)}px`);
+  document.documentElement.style.setProperty('--view-shift-x', `${viewShiftX.toFixed(1)}px`);
+  for (const cam of [camera, sky.camera, deep.camera]) {
+    if (viewShift > 0.5 || viewShiftX > 0.5) cam.setViewOffset(w, h, -viewShiftX, viewShift, w, h); else cam.clearViewOffset();
+  }
+}
 
 // Adaptive resolution: if frames take longer than ~22 ms (under 45 fps) for a couple of seconds, render
 // fewer pixels; when there is headroom again, step back up. Keeps phones smooth and cool.
@@ -470,6 +496,9 @@ ui.showInfo(state.focus, 'Current location');
 // ---------------------------------------------------------------- poster studio
 const poster = new PosterStudio(app);
 app.openPoster = () => poster.open();
+const sheet = new Sheet(app);
+app.sheet = sheet;
+ui.syncDock();
 const guide = new Guide(app);
 app.startTour = () => guide.start();
 app.guide = guide;
@@ -514,6 +543,7 @@ function frame(now) {
     rig.update(dt, camPos, camQuat);
   }
 
+  applyViewShift();
   camera.position.set(0, 0, 0);
   camera.quaternion.copy(camQuat);
   camera.updateMatrixWorld();
@@ -569,6 +599,7 @@ function frame(now) {
   ui.updateLabels(viewport);
   ui.updateZoom();
   ui.updateDock(false);
+  sheet.update();
   ui.refreshLive(false);
   ui.refreshTrip(false);
   ui.updateClock(state.simMs);

@@ -106,6 +106,8 @@ In VS Code, the *Live Server* extension also works.
 | P, or the **Poster** button | Open the poster studio: the solar system on any date from 1800 to 2050, as a print-ready PNG (link straight to it with `#poster`) |
 | H, or the eye button (top right) | Hide every control for a clear, full-screen view; press again, or tap the small eye, to bring them back |
 | Dock (bottom, while controls are hidden) | Shows where you're headed and the trip time. Its icons open the details, open the flight controls (the flight readout while flying), and Engage or abort in one tap. On a phone, tap empty space to put panels away |
+| **Bottom sheet** (phones) | Like a maps app. Collapsed it shows where you're headed and a **Fly** button; drag it up (or tap the header) for search, every world as a tappable chip, ship speed and flight clock; pull it all the way up for the selected world's details, the clock and the poster studio. Flick to throw it between stops; pull down at the top to collapse. The view slides up to keep the world centred above it. In landscape it floats on the left |
+| **Layers** button (phones, top right) | Opens the display options as a sheet from the bottom. Under it, the eye hides everything for a clear view |
 | **View** button (top right) | Opens the display options, grouped: orbits and labels, deep sky, galaxies and nebulae, constellations and star names, curvature, cockpit, and the **Details** and **Flight console** panels. The badge counts what is on. On phones it also holds Poster, Help and Full screen |
 | × on a panel | Closes the Details panel or the Flight console and switches it off under View. While the console is closed, a small dock at the bottom keeps the destination, trip time and Engage one tap away |
 | Space | Pause or resume time |
@@ -734,6 +736,7 @@ js/deepsky.js         DeepSky class: light-year scene, volume levels of detail, 
 js/controls.js        CameraRig: orbit (in a deep-sky object's own frame), log-altitude zoom, free look,
                       tap/double-tap, zoom API
 js/travel.js          Flight planning, cinematic log profile, real-time mode
+js/sheet.js           Phone bottom sheet: drag stops, search, world chips, flight settings, details
 js/guide.js           Guided tour: live demos of each gesture, then waits for you to try it
 js/platform.js        Device detection, mobile memory limits, haptics, sharing and app lifecycle (web and iOS app)
 js/poster.js          Poster studio: date to planet directions, 2D poster layout, print-size PNG export

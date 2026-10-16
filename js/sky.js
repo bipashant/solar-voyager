@@ -154,6 +154,9 @@ export class Sky {
     this.camera.quaternion.copy(mainCamera.quaternion);
     this.camera.fov = mainCamera.fov;
     this.camera.aspect = mainCamera.aspect;
+    const v = mainCamera.view;
+    if (v?.enabled) this.camera.setViewOffset(v.fullWidth, v.fullHeight, v.offsetX, v.offsetY, v.width, v.height);
+    else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
     this.camera.updateMatrixWorld();
     this.innerStars.visible = this.lens.uLensN.value > 0;
@@ -183,6 +186,6 @@ export class Sky {
       .multiplyScalar(R_SKY).applyMatrix4(this.camera.matrixWorldInverse);
     if (v.z >= 0) return null;
     const pxPerRad = viewport.y / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
-    return { x: (v.x / -v.z) * pxPerRad + viewport.x / 2, y: (-v.y / -v.z) * pxPerRad + viewport.y / 2 };
+    return { x: (v.x / -v.z) * pxPerRad + (viewport.cx ?? viewport.x / 2), y: (-v.y / -v.z) * pxPerRad + (viewport.cy ?? viewport.y / 2) };
   }
 }
