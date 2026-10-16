@@ -34,6 +34,21 @@ body {
   touch-action: none;
 }
 button, select { font: inherit; color: inherit; }
+
+/* Touch devices and the iOS app: behave like an app, not a web page. */
+html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+input, textarea, select, .blurb, .help-note, .gr-note { -webkit-user-select: text; user-select: text; }
+.touch-row { display: none !important; }
+@media (hover: none) and (pointer: coarse) {
+  /* iOS zooms into any form field smaller than 16px when it gets focus */
+  input, select, textarea, .ps-field input { font-size: 16px; }
+  .kbd-row, .kbd-only, .tog kbd, .menu-action kbd { display: none !important; }
+  .touch-row { display: grid !important; }
+  button { touch-action: manipulation; }
+}
+/* Full screen is a desktop-browser feature; iPhones and the app are full screen already. */
+.no-fullscreen [data-action="fullscreen"] { display: none !important; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -600,7 +615,10 @@ dd { margin: 0; text-align: right; font: 500 12.5px/1.4 var(--font-data); font-v
 #toast b { color: var(--amber); font-weight: 600; }
 
 /* ---------------------------------------------------------------- help + loader */
-.modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(2, 4, 8, 0.6); z-index: 10; padding: var(--gutter); }
+.modal {
+  position: fixed; inset: 0; display: grid; place-items: center; background: rgba(2, 4, 8, 0.6); z-index: 10;
+  padding: max(var(--gutter), env(safe-area-inset-top, 0px)) var(--gutter) max(var(--gutter), env(safe-area-inset-bottom, 0px));
+}
 .modal-card {
   width: min(560px, 100%);
   max-height: 100%;
@@ -619,6 +637,7 @@ dd { margin: 0; text-align: right; font: 500 12.5px/1.4 var(--font-data); font-v
 .help-note { margin: 0; font-size: 13.5px; line-height: 1.55; color: #c9d3e1; }
 .help-credit { margin: 0; font-size: 11.5px; color: var(--ink-faint); line-height: 1.5; }
 .modal-card .btn-engage { align-self: flex-end; }
+.modal-card > * { flex-shrink: 0; } /* scroll the card rather than squash its contents on short screens */
 
 /* ---------------------------------------------------------------- poster studio */
 .poster-modal { padding: 20px; }
@@ -661,6 +680,11 @@ dd { margin: 0; text-align: right; font: 500 12.5px/1.4 var(--font-data); font-v
   color-scheme: dark;
 }
 .ps-field input:focus { border-color: rgba(255, 181, 71, 0.6); outline: none; }
+.ps-field input::placeholder { color: var(--ink-faint); opacity: 1; }
+/* iOS date and time fields have a built-in minimum width and centred text; make them behave like the rest */
+.ps-form, .ps-row > * { min-width: 0; }
+.ps-field input[type="date"], .ps-field input[type="time"] { -webkit-appearance: none; appearance: none; display: block; min-height: 38px; }
+.ps-field input::-webkit-date-and-time-value { text-align: left; }
 .ps-row { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; }
 .ps-note { margin: -4px 0 0; font-size: 12px; color: var(--danger); }
 .ps-themes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -711,7 +735,7 @@ body.poster-open #dock, body.poster-open .show-ui { visibility: hidden; }
   .btn-engage { grid-column: 2; }
   #info { width: 290px; }
 }
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) and (pointer: coarse) {
   :root { --gutter: 12px; }
   .brand-sub { display: none; }
   .brand-name { font-size: 15px; }
@@ -743,7 +767,7 @@ body.poster-open #dock, body.poster-open .show-ui { visibility: hidden; }
   #cockpit .reticle { width: 90px; height: 90px; }
   .poster-modal { padding: 0; }
   .poster-card { height: 100%; border-radius: 0; border: 0; grid-template-columns: 1fr; grid-template-rows: minmax(0, 46%) minmax(0, 1fr); }
-  .ps-preview { padding: 14px; }
+  .ps-preview { padding: calc(env(safe-area-inset-top, 0px) + 12px) 14px 14px; }
   .ps-form { border-left: 0; border-top: 1px solid var(--line); padding: 14px 16px calc(env(safe-area-inset-bottom, 0px) + 16px); }
   .ps-lede { display: none; }
   .zoom { left: auto; right: var(--gutter); top: 40%; width: 52px; padding: 6px 0 7px; }

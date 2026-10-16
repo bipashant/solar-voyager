@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { C_KMS } from './ephemeris.js';
 import * as S from './shaders.js';
+import { isPhone } from './platform.js';
 
 // GM in km³/s² (JPL DE440 and satellite ephemerides). Bodies not listed use their size and 1.3 g/cm³.
 const GM = {
@@ -25,7 +26,8 @@ const GM = {
 
 export const MAX_WELLS = 34;
 export const MAX_LENS = 6;
-const RINGS = 480, SEGS = 320;
+// a phone's small screen needs fewer cells to look just as smooth
+const RINGS = isPhone ? 320 : 480, SEGS = isPhone ? 216 : 320;
 const C2 = C_KMS * C_KMS;
 const NS_U = 1e-9 * C2; // potential that slows clocks by 1 ns per second
 

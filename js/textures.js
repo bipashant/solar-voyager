@@ -1,5 +1,6 @@
 // Texture loading with a 2k first pass and on-demand high-resolution upgrades.
 import * as THREE from 'three';
+import { textureCap } from './platform.js';
 
 const BASE = 'assets/textures/';
 const LINEAR = new Set(['earth_spec_2k', 'earth_normal_2k']);
@@ -8,7 +9,8 @@ export class TextureStore {
   constructor(renderer, manager) {
     this.loader = new THREE.TextureLoader(manager);
     this.cache = new Map();
-    this.maxSize = renderer.capabilities.maxTextureSize;
+    // mobile devices stop at 4k to stay within their memory (see platform.js)
+    this.maxSize = Math.min(renderer.capabilities.maxTextureSize, textureCap);
     this.aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     const data = new Uint8Array([128, 128, 128, 255]);
     this.placeholder = new THREE.DataTexture(data, 1, 1);
@@ -23,6 +25,11 @@ export class TextureStore {
 
   supports(name) {
     return TextureStore.widthOf(name) <= this.maxSize;
+  }
+
+  // The sharpest of several sizes this device can take, or null.
+  best(names) {
+    return names.filter((n) => this.supports(n)).sort((a, b) => TextureStore.widthOf(b) - TextureStore.widthOf(a))[0] || null;
   }
 
   load(name) {

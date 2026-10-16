@@ -14,6 +14,7 @@ import { SPEEDS, TRAVEL_MODES, TIME_RATES } from './data.js';
 import { jdFromMs, DEG } from './ephemeris.js';
 import { fmtDuration } from './format.js';
 import * as S from './shaders.js';
+import { haptic, onResume, appReady, isMobile, isCompact } from './platform.js';
 
 const canvas = document.getElementById('view');
 let renderer;
@@ -23,7 +24,11 @@ try {
   document.getElementById('loader-text').textContent = 'This browser could not start WebGL 2, which the 3D view needs. Try a recent Chrome, Edge, Firefox or Safari.';
   throw err;
 }
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// Resolution: up to 2× the CSS pixels, lowered while frames run slow (see adaptResolution).
+const MAX_PR = Math.min(window.devicePixelRatio, 2);
+const MIN_PR = Math.min(MAX_PR, isMobile ? 1.25 : 1);
+let pixelRatio = MAX_PR;
+renderer.setPixelRatio(pixelRatio);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.autoClear = false;
@@ -137,7 +142,8 @@ const app = {
       speed: state.speed.kms, warp: state.mode.warp,
     });
     rig.enabled = false;
-    if (window.innerWidth < 720) document.getElementById('info').classList.add('collapsed');
+    haptic('engage');
+    if (isCompact()) document.getElementById('info').classList.add('collapsed');
     ui.showFlight(true, target);
     ui.refreshTrip(true);
     ui.buildFeatureLabels();
@@ -146,6 +152,7 @@ const app = {
   abort() {
     if (!travel.active) return;
     travel.abort();
+    haptic('abort');
     // Stay where we are, orbiting whichever body is nearest relative to its size.
     let best = state.focus, bestScore = Infinity;
     for (const b of [...system.bodies, ...deep.objects]) {
@@ -254,6 +261,7 @@ function arrive(body, aborted = false, quiet = false) {
     ? ` ${body.name} is in ${system.eclipser.name}’s shadow right now; speed up the clock to watch it return to sunlight.` : '';
   if (quiet) { if (shade) ui.toast(shade.trim(), 6000); return; }
   if (!aborted) {
+    haptic('arrive');
     const real = travel.realDuration;
     ui.toast(`Arrived at <b>${body.name}</b> · ${fmtDuration(real)} at ${state.speed.short}.${shade}`, shade ? 7000 : 5200);
   } else {
@@ -295,7 +303,7 @@ rig.onTap = (x, y) => {
   if (b) {
     if (b === state.focus) ui.showInfo(b, 'Current location');
     else app.setDestination(b.id);
-  } else if (window.innerWidth < 720) {
+  } else if (isCompact()) {
     ui.closePeeks(); // on a phone, tapping empty space puts the panels away again
   }
 };
@@ -327,7 +335,11 @@ window.addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------- sizing
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
+  renderer.setPixelRatio(pixelRatio);
   renderer.setSize(w, h, false);
+  // point sprites are sized in rendered pixels, so they follow the resolution
+  sky.starMat.uniforms.uScale.value = pixelRatio;
+  system.markers.material.uniforms.uDpr.value = pixelRatio;
   camera.aspect = w / h;
   camera.fov = w < 720 ? 62 : 50;
   camera.updateProjectionMatrix();
@@ -338,6 +350,25 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 resize();
+
+// Adaptive resolution: if frames take longer than ~22 ms (under 45 fps) for a couple of seconds, render
+// fewer pixels; when there is headroom again, step back up. Keeps phones smooth and cool.
+const perf = { ms: 16, t: 0, fast: 0 };
+function adaptResolution(rawDt) {
+  if (rawDt > 0.25) return; // ignore the gap after the app or tab was in the background
+  perf.ms += (rawDt * 1000 - perf.ms) * 0.06;
+  perf.t += rawDt;
+  if (perf.t < 2) return;
+  perf.t = 0;
+  let next = pixelRatio;
+  if (perf.ms > 22 && pixelRatio > MIN_PR) { next = Math.max(MIN_PR, pixelRatio - 0.25); perf.fast = 0; }
+  else if (perf.ms < 15) { if (++perf.fast >= 3 && pixelRatio < MAX_PR) { next = Math.min(MAX_PR, pixelRatio + 0.25); perf.fast = 0; } }
+  else perf.fast = 0;
+  if (next !== pixelRatio) { pixelRatio = next; resize(); }
+}
+
+// In real-time mode the clock keeps up while the app is in the background.
+onResume((awayMs) => { if (state.timeRate.rate === 1) state.simMs += awayMs; });
 
 // ---------------------------------------------------------------- body snapshots (for posters)
 // Renders single bodies with the real materials and lighting for a given date, one at a time, into
@@ -459,6 +490,7 @@ let last = performance.now();
 const tmpDir = new THREE.Vector3();
 const lookPoint = new THREE.Vector3();
 function frame(now) {
+  adaptResolution((now - last) / 1000);
   const dt = Math.min((now - last) / 1000, 0.1);
   last = now;
   state.simMs += dt * 1000 * state.timeRate.rate;
@@ -538,6 +570,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+appReady(); // the loader is on screen: let the native launch screen go
 
 // Exposed for debugging from the console.
 window.solarVoyager = app;

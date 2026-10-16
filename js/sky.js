@@ -125,10 +125,12 @@ export class Sky {
   }
 
   async upgradeMilkyWay() {
-    const name = this.textures.supports('milkyway_8k') ? 'milkyway_8k' : null;
+    const name = this.textures.best(['milkyway_4k', 'milkyway_8k']);
     if (!name) return;
     const hi = await this.textures.load(name);
+    const old = this.milkyMat.uniforms.uMilky.value;
     this.milkyMat.uniforms.uMilky.value = hi;
+    if (old && old !== hi && old !== this.textures.placeholder) old.dispose();
   }
 
   setConstellations(on) { this.lines.visible = on; }

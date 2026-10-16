@@ -5,6 +5,7 @@ import { jdFromMs, AU_KM, C_KMS, raDecToScene } from './ephemeris.js';
 import { fmtDuration } from './format.js';
 import { STARS } from './stars.js';
 import { bvToColor } from './sky.js';
+import { saveImage, canShareFiles, haptic, isIOS, isMobile, isTouch } from './platform.js';
 
 const PLANETS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
 
@@ -507,6 +508,9 @@ export class PosterStudio {
     this.spriteKey = '';
     const sel = $('ps-size');
     for (const s of SIZES) { const o = document.createElement('option'); o.value = s.id; o.textContent = s.label; sel.append(o); }
+    // on phones and tablets: a lighter default size, and the share sheet instead of a download
+    if (isMobile) sel.value = 'print12';
+    if (canShareFiles) $('ps-download').textContent = 'Save or share';
     const today = new Date();
     $('ps-date').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
@@ -532,7 +536,8 @@ export class PosterStudio {
     $('poster').hidden = false;
     document.body.classList.add('poster-open');
     this.schedule(0);
-    setTimeout(() => $('ps-name').focus(), 50);
+    // on touch screens the keyboard would cover the preview, so wait for a tap instead
+    if (!isTouch) setTimeout(() => $('ps-name').focus(), 50);
   }
 
   close() {
@@ -553,9 +558,11 @@ export class PosterStudio {
     const years = (Date.now() - ms) / (365.25 * 86400000);
     const km = Math.abs(years) * 2 * Math.PI * AU_KM;
     const kmLabel = km >= 1e9 ? `${(km / 1e9).toFixed(1)} billion km` : `${Math.round(km / 1e6).toLocaleString('en-US')} million km`;
-    const lapsLabel = years >= 0
-      ? ['EARTH HAS SINCE FLOWN', `${kmLabel} · ${years.toFixed(1)} laps`]
-      : ['EARTH WILL FLY', `${kmLabel} · ${(-years).toFixed(1)} laps`];
+    const lapsLabel = Math.abs(years) < 0.05
+      ? ['EARTH IS FLYING AT', '29.8 km/s around the Sun'] // a date within a few weeks of today
+      : years >= 0
+        ? ['EARTH HAS SINCE FLOWN', `${kmLabel} · ${years.toFixed(1)} laps`]
+        : ['EARTH WILL FLY', `${kmLabel} · ${(-years).toFixed(1)} laps`];
     $('ps-date-note').hidden = valid;
     return {
       ms, valid, theme: this.theme, pluto: $('ps-pluto').checked, deepSky: $('ps-deep').checked,
@@ -616,9 +623,8 @@ export class PosterStudio {
     const opts = this.readForm();
     let size = SIZES.find((s) => s.id === $('ps-size').value) || SIZES[0];
     // iPhones and iPads cap a canvas at about 16.7 million pixels
-    const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     let { w, h } = size;
-    if (ios && w * h > 16e6) { const k = Math.sqrt(16e6 / (w * h)); w = Math.floor(w * k); h = Math.floor(h * k); }
+    if (isIOS && w * h > 16e6) { const k = Math.sqrt(16e6 / (w * h)); w = Math.floor(w * k); h = Math.floor(h * k); }
     btn.disabled = true;
     const label = btn.textContent;
     btn.textContent = 'Rendering…';
@@ -634,16 +640,15 @@ export class PosterStudio {
       const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
       if (!blob) throw new Error('canvas too large');
       const slug = (opts.name || 'solar-system').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'solar-system';
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${slug}-${opts.date || 'today'}-${size.id}.png`;
-      document.body.append(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-      $('ps-status').textContent = `Saved ${a.download} (${w.toLocaleString('en-US')} × ${h.toLocaleString('en-US')} px).`;
+      const file = `${slug}-${opts.date || 'today'}-${size.id}.png`;
+      const px = `${w.toLocaleString('en-US')} × ${h.toLocaleString('en-US')} px`;
+      btn.textContent = canShareFiles ? 'Opening…' : 'Saving…';
+      const how = await saveImage(blob, file, opts.name ? `${opts.name}'s solar system` : 'My solar system');
+      if (how !== 'cancelled') haptic('saved');
+      $('ps-status').textContent = how === 'cancelled' ? '' : how === 'shared' ? `Ready: ${px}.` : `Saved ${file} (${px}).`;
     } catch (err) {
       console.error(err);
+      haptic('warn');
       $('ps-status').textContent = 'This device could not render a poster that large. Try a smaller size.';
     } finally {
       btn.disabled = false;

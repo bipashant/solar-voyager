@@ -733,6 +733,7 @@ js/deepsky.js         DeepSky class: light-year scene, volume levels of detail, 
 js/controls.js        CameraRig: orbit (in a deep-sky object's own frame), log-altitude zoom, free look,
                       tap/double-tap, zoom API
 js/travel.js          Flight planning, cinematic log profile, real-time mode
+js/platform.js        Device detection, mobile memory limits, haptics, sharing and app lifecycle (web and iOS app)
 js/poster.js          Poster studio: date to planet directions, 2D poster layout, print-size PNG export
 js/spacetime.js       Masses, gravity-well sheet, free-falling frame, gravitational lensing inputs
 js/ui.js              Selects, info panel, flight display, zoom control, labels and decluttering
@@ -808,6 +809,17 @@ solarVoyager.rig.setZoomFraction(0.9)            // zoom close to the surface
 - **Deep-sky objects:** the models are generated and baked into volume textures in a background worker, with no extra downloads: a small volume for each object a few seconds after the planets load, then a detailed one (about 1 to 2 seconds of work) for each object you head to. The volume pass ray-marches at a resolution that adapts to the frame rate, between about 0.2 and 2 million pixels, with fewer steps for objects that are small on screen. Volumes take about 80 MB of GPU memory at most, half that on phones.
 
 ---
+
+### Phones, tablets and the iOS app
+
+On phones and tablets (`js/platform.js`) the app stays inside mobile memory and power limits:
+
+- **Textures stop at 4k.** An 8k map takes about 340 MB of GPU memory with its mipmaps, enough for iOS to close the page. Earth and the Milky Way have 4k versions for this, and a replaced texture's GPU memory is freed as soon as the sharper one arrives.
+- **Adaptive resolution.** If frames take longer than about 22 ms for a couple of seconds, the render scale drops in steps of 0.25 (down to 1.25× on mobile), and climbs back when there is headroom.
+- **Lighter extras.** The curvature mesh has about half the cells on a phone, and the 3D galaxies bake smaller volumes.
+- **Behaves like an app.** No zoom when a form field gets focus, no text-selection pop-ups, a compact layout in landscape, keyboard-only help hidden on touch screens, and the clock catches up after the app has been in the background.
+
+The iOS app is a separate repo, [solar-voyager-ios](https://github.com/bipashant/solar-voyager-ios), which wraps this one in Capacitor. Inside it, posters go through the iOS share sheet (Save Image, AirDrop, Messages) and buttons give haptic feedback; on the web these fall back to the Web Share API or a download.
 
 ## 18. Credits
 

@@ -131,7 +131,10 @@ export class SolarSystem {
 
   async assignTexture(material, uniformName, name, b) {
     const tex = await this.textures.load(name);
+    const old = material.uniforms[uniformName].value;
     material.uniforms[uniformName].value = tex;
+    // free the smaller map's GPU memory; three.js re-uploads it if anything still uses it
+    if (old && old !== tex && old !== this.textures.placeholder) old.dispose();
     if (uniformName === 'uMap' && material.uniforms.uMapW) material.uniforms.uMapW.value = tex.image.width;
     return tex;
   }
@@ -149,8 +152,8 @@ export class SolarSystem {
     if (b.hiRes || !b.texJobs) return;
     b.hiRes = true;
     for (const job of b.texJobs) {
-      const hi = job.names[1];
-      if (hi && this.textures.supports(hi)) this.assignTexture(job.mat, job.uniform, hi, b).catch(() => {});
+      const hi = this.textures.best(job.names.slice(1));
+      if (hi) this.assignTexture(job.mat, job.uniform, hi, b).catch(() => {});
     }
   }
 

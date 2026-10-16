@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { DSO, LY_KM } from './deepsky-data.js';
 import { raDecToScene, sceneToGalacticMatrix, DEG } from './ephemeris.js';
 import * as S from './shaders.js';
+import { lowMemory } from './platform.js';
 
 const STAR_GAIN = 0.7;
 const EM_GAIN = 0.16;
@@ -78,7 +79,8 @@ export class DeepSky {
       uMinPx: { value: 1.2 * dpr },
       uCapPx: { value: 6 * dpr },
     };
-    const small = Math.min(window.screen?.width || 1920, window.screen?.height || 1080) < 700 || (navigator.deviceMemory || 8) <= 4;
+    // Safari has no navigator.deviceMemory, so platform.js also counts every phone as low on memory
+    const small = lowMemory || Math.min(window.screen?.width || 1920, window.screen?.height || 1080) < 700;
     this.hiBudget = small ? 2.0e6 : 4.0e6;
     this.detBudget = small ? 1.2e6 : 2.4e6;
     // pixels ray-marched per frame, adjusted to the frame rate
@@ -475,6 +477,9 @@ export class DeepSky {
   // ---------------------------------------------------------------- per frame
   // Positions relative to the camera, screen projections, which volumes to draw and in how much detail.
   update(camPos, camQuat, viewport, fovDeg, opt) {
+    const pr = this.renderer.getPixelRatio();
+    this.uniforms.uMinPx.value = 1.2 * pr;
+    this.uniforms.uCapPx.value = 6 * pr;
     const cam = this.camera;
     cam.position.set(0, 0, 0);
     cam.quaternion.copy(camQuat);
@@ -487,8 +492,8 @@ export class DeepSky {
     const pxPerRad = viewport.y / (2 * Math.tan((fovDeg * DEG) / 2));
     this.uniforms.uPx.value = pxPerRad;
     // angle covered by one pixel of the volume pass
-    const volScale = Math.min(1, Math.sqrt((this.fixedPixels || this.volPixels) / (viewport.x * viewport.y * Math.min(window.devicePixelRatio, 2) ** 2)));
-    this.pixAngle = (2 * Math.tan((fovDeg * DEG) / 2)) / (viewport.y * Math.min(window.devicePixelRatio, 2) * volScale);
+    const volScale = Math.min(1, Math.sqrt((this.fixedPixels || this.volPixels) / (viewport.x * viewport.y * this.renderer.getPixelRatio() ** 2)));
+    this.pixAngle = (2 * Math.tan((fovDeg * DEG) / 2)) / (viewport.y * this.renderer.getPixelRatio() * volScale);
     _q.copy(camQuat).invert();
     const now = performance.now();
     this.anyVolume = false;

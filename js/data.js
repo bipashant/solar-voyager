@@ -111,7 +111,7 @@ export const BODIES = [
   },
   {
     id: 'earth', name: 'Earth', kind: 'planet', order: 3, radius: 6378.137, polar: 6356.752, color: '#6b9bff',
-    tex: { map: ['earth_day_2k', 'earth_day_8k'], night: ['earth_night_2k', 'earth_night_4k'],
+    tex: { map: ['earth_day_2k', 'earth_day_4k', 'earth_day_8k'], night: ['earth_night_2k', 'earth_night_4k'],
       clouds: ['earth_clouds_2k', 'earth_clouds_4k'], spec: ['earth_spec_2k'], normal: ['earth_normal_2k'] },
     pole: [0, 90], W: [190.147, 360.9856235], style: 'earth', relief: 1.0, view: 3.4, bright: 0.88,
     subtitle: 'Rocky planet · 3rd from the Sun',

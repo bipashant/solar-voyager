@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { BODIES, SPEEDS, TRAVEL_MODES, TIME_RATES } from './data.js';
 import { DSO_GROUPS } from './deepsky-data.js';
 import { fmtDistance, fmtAU, fmtDuration, fmtLightTime, fmtSpeed, fmtFactor, fmtCompact, fmtSci, fmtLength, fmtTiny, fmtArc } from './format.js';
+import { haptic, isCompact } from './platform.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -19,7 +20,7 @@ export class UI {
     this.app = app;
     // Phones start in a calm layout: logo and View at the top, a collapsed Engage dock at the bottom.
     // Everything else is one switch away under View > Panels.
-    const wide = window.innerWidth >= 720;
+    const wide = !isCompact();
     this.toggles = { orbits: true, labels: true, deepsky: true, dso: true, constellations: false, starnames: false, curvature: false, cockpit: true, info: false, console: wide, clock: wide, zoom: wide };
     this.labelEls = new Map();
     this.featureEls = [];
@@ -82,6 +83,7 @@ export class UI {
     for (const b of document.querySelectorAll('.tog')) {
       b.addEventListener('click', () => {
         const key = b.dataset.toggle;
+        haptic('tap');
         this.setToggle(key, !this.toggles[key]);
       });
     }
@@ -93,7 +95,7 @@ export class UI {
     $('info-go').addEventListener('click', () => this.app.setDestination(this.inspect.id));
 
     // The View dropdown stays open while you flip several switches; a tap anywhere else closes it.
-    $('btn-layers').addEventListener('click', () => this.setMenu(!$('toggles').classList.contains('open')));
+    $('btn-layers').addEventListener('click', () => { haptic('tap'); this.setMenu(!$('toggles').classList.contains('open')); });
     document.addEventListener('pointerdown', (e) => {
       if (!$('toggles').contains(e.target)) this.setMenu(false);
     });
@@ -103,6 +105,7 @@ export class UI {
     const panelShown = (which) => (this.uiHidden ? this.peeking(which) : this.toggles[which]);
     const showPanel = (which, on) => (this.uiHidden ? this.setPeek(which, on) : this.setToggle(which, on));
     $('dock-info').addEventListener('click', () => {
+      haptic('tap');
       const open = !panelShown('info');
       // details describe whatever the dock is showing: the flight target, the destination, or here
       if (open && this.dockBody && this.dockBody !== this.inspect) {
@@ -110,7 +113,7 @@ export class UI {
       }
       showPanel('info', open);
     });
-    $('dock-console').addEventListener('click', () => showPanel('console', !panelShown('console')));
+    $('dock-console').addEventListener('click', () => { haptic('tap'); showPanel('console', !panelShown('console')); });
     // A panel's × closes it, which is the same as switching it off under View (or ends a peek in clear view).
     for (const b of document.querySelectorAll('[data-close]')) {
       b.addEventListener('click', () => {
@@ -143,7 +146,7 @@ export class UI {
     }
     $('help-close').addEventListener('click', () => this.showHelp(false));
     $('help').addEventListener('click', (e) => { if (e.target.id === 'help') this.showHelp(false); });
-    if (window.innerWidth < 720) $('info').classList.add('collapsed');
+    if (isCompact()) $('info').classList.add('collapsed');
     const setConsoleH = () => document.documentElement.style.setProperty('--console-h', `${$('console').offsetHeight}px`);
     if (window.ResizeObserver) new ResizeObserver(setConsoleH).observe($('console'));
     setConsoleH();
@@ -164,6 +167,7 @@ export class UI {
         if (btn.disabled) return;
         e.preventDefault();
         btn.setPointerCapture?.(e.pointerId);
+        haptic('step');
         rig.zoomStep(dir);
         // keep zooming smoothly while the button is held down
         timer = setTimeout(() => { rig.zoomHold = dir; btn.classList.add('holding'); }, 260);
@@ -192,8 +196,13 @@ export class UI {
       for (const id of ['zoom-in', 'zoom-out', 'zoom-slider']) $(id).disabled = off;
     }
     const slider = $('zoom-slider');
+    // a firmer tap when zooming runs into the surface or the edge of the Solar System
+    const f = rig.zoomFraction();
+    const edge = f >= 0.999 ? 1 : f <= 0.001 ? -1 : 0;
+    if (edge && edge !== this.zoomEdge && this.zoomEdge !== undefined) haptic('warn');
+    this.zoomEdge = edge;
     if (!this.zoomDragging && document.activeElement !== slider) {
-      const v = Math.round(rig.zoomFraction() * 1000);
+      const v = Math.round(f * 1000);
       if (Number(slider.value) !== v) slider.value = v;
     }
     const now = performance.now();
@@ -282,7 +291,7 @@ export class UI {
   // closes the other.
   setPeek(which, on) {
     const body = document.body;
-    if (on && window.innerWidth < 720) body.classList.remove(`peek-${which === 'info' ? 'console' : 'info'}`);
+    if (on && isCompact()) body.classList.remove(`peek-${which === 'info' ? 'console' : 'info'}`);
     body.classList.toggle(`peek-${which}`, on);
     if (which === 'info' && on) {
       $('info').classList.remove('collapsed');
@@ -524,7 +533,7 @@ export class UI {
   showFlight(on, target) {
     $('flight').hidden = !on;
     document.body.classList.toggle('flying', on);
-    if (on && this.uiHidden && window.innerWidth < 720) this.setPeek('info', false);
+    if (on && this.uiHidden && isCompact()) this.setPeek('info', false);
     if (target) $('flight-target').textContent = target.name;
     for (const id of ['dest', 'speed', 'mode']) $(id).disabled = on;
   }
