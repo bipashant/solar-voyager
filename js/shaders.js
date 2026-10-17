@@ -1044,6 +1044,7 @@ void main(){
 
 export const GLARE_FRAG = /* glsl */`
 uniform float uIntensity;
+uniform float uCorona;
 uniform float uTime;
 varying vec2 vUv;
 varying float vDiscFrac;
@@ -1061,6 +1062,11 @@ void main(){
   float core = smoothstep(0.07, 0.0, r) * (1.0 - nearSun);
   vec3 col = vec3(1.0, 0.8, 0.55) * corona * mix(1.0, 0.75, nearSun) + vec3(1.0, 0.95, 0.88) * (spikes * 0.8 + core * 3.0 + halo);
   col *= uIntensity * smoothstep(1.0, 0.75, r);
+  // eclipse corona: pearly streamers just outside the covered disc, never over it
+  float out_ = smoothstep(vDiscFrac * 0.99, vDiscFrac * 1.04, r);
+  float cr = max(r - vDiscFrac, 0.0) / max(vDiscFrac, 1e-3);
+  float streamer = 0.6 + 0.4 * pow(abs(sin(ang * 3.0 + 0.7)), 3.0) + 0.25 * sin(ang * 11.0 + 1.3);
+  col += vec3(0.86, 0.9, 1.0) * uCorona * out_ * (exp(-cr * 2.2) * 1.3 + exp(-cr * 0.55) * 0.42 * streamer) * smoothstep(1.0, 0.6, r);
   gl_FragColor = vec4(col, 1.0);
 }
 `;

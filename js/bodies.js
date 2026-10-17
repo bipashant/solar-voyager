@@ -278,7 +278,7 @@ export class SolarSystem {
       transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
       uniforms: {
         uCenterV: { value: new THREE.Vector3() }, uSizeWorld: { value: b.radius * 2.6 }, uMinPx: { value: 160 },
-        uViewport: { value: new THREE.Vector2(1, 1) }, uFovScale: { value: 1 }, uIntensity: { value: 1 }, uTime: this.shared.uTime,
+        uViewport: { value: new THREE.Vector2(1, 1) }, uFovScale: { value: 1 }, uIntensity: { value: 1 }, uCorona: { value: 0 }, uTime: this.shared.uTime,
       },
     }));
     this.glare.frustumCulled = false;
@@ -575,7 +575,9 @@ export class SolarSystem {
       gu.uViewport.value.set(viewport.x, viewport.y);
       gu.uFovScale.value = fovScale;
       gu.uIntensity.value = this.sunVisibility(camPos) * this.glareFade;
-      this.glare.visible = sun.viewPos.z < 0 && gu.uIntensity.value > 0.001;
+      // during a total (or nearly total) eclipse the corona shows around the hidden Sun
+      gu.uCorona.value = this.eclipser ? THREE.MathUtils.smoothstep(1 - gu.uIntensity.value, 0.85, 0.995) * this.glareFade : 0;
+      this.glare.visible = sun.viewPos.z < 0 && (gu.uIntensity.value > 0.001 || gu.uCorona.value > 0.001);
     }
 
     // Orbits: planetary orbits fade out while you are close to a world

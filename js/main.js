@@ -549,6 +549,39 @@ app.startTour = () => guide.start();
 app.guide = guide;
 
 // ---------------------------------------------------------------- shareable views in the address bar
+// Points of view for event links (see viewlink.js), computed from where everything is at that moment.
+function aimPov(body, p) {
+  const [kind, id] = p.pov.split(':');
+  const other = id && app.lookup(id);
+  const R = body.coreRadius ?? body.maxRadius;
+  const dir = new THREE.Vector3();
+  let alt = p.alt > 0 ? p.alt : null;
+  if ((kind === 'from' || kind === 'behind' || kind === 'side') && !other) return;
+  if (kind === 'from') {
+    // near the other body, looking back at this one (e.g. Jupiter as seen from Earth)
+    dir.copy(other.pos).sub(body.pos);
+    const d = dir.length();
+    dir.normalize();
+    alt ??= Math.max(R * 2, d - R - other.maxRadius * 6);
+  } else if (kind === 'behind') {
+    dir.copy(body.pos).sub(other.pos).normalize(); // the other body sits behind this one
+    // a moon seen from its planet's distance: where you'd stand in the path of an eclipse
+    alt ??= body.parent ? body.pos.distanceTo(body.parent.pos) - body.parent.radius - R : arrivalDistance(body) - R;
+  } else if (kind === 'side') {
+    const line = other.pos.clone().sub(body.pos).normalize();
+    dir.crossVectors(line, new THREE.Vector3(0, 1, 0)).normalize().addScaledVector(new THREE.Vector3(0, 1, 0), 0.25).normalize();
+    alt ??= other.pos.distanceTo(body.pos) * 0.8;
+  } else if (kind === 'top') {
+    dir.set(0, 1, 0).addScaledVector(new THREE.Vector3(0, 0, 1), 0.08).normalize(); // a hair off vertical
+    alt ??= arrivalDistance(body) - R;
+  } else return;
+  rig.lookAtDirection(dir, alt);
+  rig.clampAlt();
+  rig.yaw = rig.tYaw; rig.pitch = rig.tPitch; rig.logAlt = rig.tLogAlt;
+  rig.lookYaw = rig.tLookYaw = 0; rig.lookPitch = rig.tLookPitch = 0;
+  rig.update(0, camPos, camQuat);
+}
+
 let pendingCapture = null; // read the canvas right after a frame is drawn (WebGL clears it afterwards)
 const viewLink = new ViewLink(app, {
   applyCamera(body, p) {
@@ -566,6 +599,7 @@ const viewLink = new ViewLink(app, {
     rig.clampAlt();
     rig.logAlt = rig.tLogAlt;
     if (p.look) { rig.lookYaw = rig.tLookYaw = p.look[0] * DEG; rig.lookPitch = rig.tLookPitch = p.look[1] * DEG; }
+    if (p.pov) aimPov(body, p);
     rig.update(0, camPos, camQuat);
     app.sheet?.snap('peek');
   },

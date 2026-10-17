@@ -8,6 +8,9 @@
 //   time      simulated date (UTC), when it isn't "now"; rate  clock speed, when it isn't real time
 //   to        destination; speed, mode  ship speed and flight clock, when not the defaults
 //   on, off   display layers switched away from their defaults
+//   pov       (incoming links only) a point of view worked out from where things are at that moment:
+//             from:<id> near <id> looking at the world; behind:<id> past the world, <id> behind it;
+//             side:<id> side-on to the line between them; top above the ecliptic. alt still applies.
 //
 // The address is rewritten (history.replaceState, so no back-button spam) a few times a second at most,
 // and only when something changed. Panels and sound are personal, so they are left out.
@@ -74,7 +77,7 @@ export class ViewLink {
     return {
       at: q.get('at'), alt: num('alt'), yaw: num('yaw'), pitch: num('pitch'),
       look: look.length === 2 && look.every(Number.isFinite) ? look : null,
-      time: q.get('time'), rate: q.get('rate'), to: q.get('to'), speed: q.get('speed'), mode: q.get('mode'),
+      pov: q.get('pov'), time: q.get('time'), rate: q.get('rate'), to: q.get('to'), speed: q.get('speed'), mode: q.get('mode'),
       on: (q.get('on') || '').split(',').filter(Boolean), off: (q.get('off') || '').split(',').filter(Boolean),
     };
   }
