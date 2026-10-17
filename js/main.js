@@ -372,6 +372,7 @@ window.addEventListener('keydown', (e) => {
     app.setTimeRate(state.timeRate.rate === 0 ? state.lastRate.id : 'pause');
   } else if (e.key === 'r' || e.key === 'R') rig.resetLook();
   else if (e.key === 'g' || e.key === 'G') ui.setToggle('curvature', !ui.toggles.curvature);
+  else if (e.key === 'm' || e.key === 'M') ui.setToggle('sound', !ui.toggles.sound);
   else if (e.key === 'b' || e.key === 'B') ui.setToggle('deepsky', !ui.toggles.deepsky);
   else if (e.key === 'n' || e.key === 'N') ui.setToggle('dso', !ui.toggles.dso);
   else if (e.key === 'h' || e.key === 'H') ui.setChromeHidden(!ui.uiHidden);

@@ -102,6 +102,7 @@ export class UI {
     });
     $('tog-done').addEventListener('click', () => this.setMenu(false));
     $('btn-hide-ui').addEventListener('click', () => this.setChromeHidden(true));
+    $('btn-sound').addEventListener('click', () => { haptic('tap'); this.setToggle('sound', !this.toggles.sound); });
     $('btn-show-ui').addEventListener('click', () => this.setChromeHidden(false));
     // In clear view the dock icons peek at a panel; otherwise they switch the panel itself on or off.
     const panelShown = (which) => (this.uiHidden ? this.peeking(which) : this.toggles[which]);
@@ -241,7 +242,12 @@ export class UI {
     const count = Object.entries(this.toggles).filter(([k, v]) => v && document.querySelector(`.tog[data-toggle="${k}"]`)).length;
     $('view-count').textContent = count;
     if (key === 'orbits') this.app.system.showOrbits = on;
-    if (key === 'sound') this.app.audio?.setEnabled(on);
+    if (key === 'sound') {
+      this.app.audio?.setEnabled(on);
+      const btn = $('btn-sound');
+      btn.setAttribute('aria-pressed', String(on));
+      btn.title = on ? 'Sound on · tap to mute (M)' : 'Sound off · tap to turn on (M)';
+    }
     if (key === 'dso') this.app.deepSky.setEnabled(on);
     if (key === 'clock' || key === 'zoom') {
       document.body.classList.toggle(`no-${key}`, !on);

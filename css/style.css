@@ -281,6 +281,13 @@ select option, select optgroup { background: #0d1420; color: var(--ink); }
 }
 .icon-btn svg { stroke-linecap: round; stroke-linejoin: round; }
 
+/* sound: a speaker that shows waves when on and a cross when muted */
+.sound-btn svg { width: 17px; height: 17px; }
+.sound-btn .x { display: none; }
+.sound-btn[aria-pressed="false"] { color: var(--ink-faint); }
+.sound-btn[aria-pressed="false"] .w1, .sound-btn[aria-pressed="false"] .w2 { display: none; }
+.sound-btn[aria-pressed="false"] .x { display: inline; }
+
 /* View: one button that opens every display option, grouped */
 .view-btn {
   height: 32px;
@@ -936,13 +943,14 @@ body.poster-open #dock, body.poster-open .show-ui { visibility: hidden; }
   /* Phones: a small stack of map-style buttons at the top right (Layers, clear view)... */
   /* (no blur on the stack itself: it would trap the fixed-position Layers sheet inside it) */
   .toggles { top: calc(env(safe-area-inset-top, 0px) + 10px); flex-direction: column; gap: 0; transition: opacity 0.25s, visibility 0.25s; }
-  .toggles > .view-btn, .toggles > #btn-hide-ui {
+  .toggles > .view-btn, .toggles > #btn-hide-ui, .toggles > #btn-sound {
     width: 48px; height: 46px; padding: 0; justify-content: center;
     background: rgba(11, 16, 27, 0.84); border: 1px solid var(--line-strong);
     backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
   }
   .toggles > .view-btn { border-radius: 14px 14px 0 0; border-bottom-color: var(--line); }
+  .toggles > #btn-sound { border-radius: 0; border-top: 0; border-bottom-color: var(--line); }
   .toggles > #btn-hide-ui { border-radius: 0 0 14px 14px; border-top: 0; }
   /* the full-height sheet covers the top of the screen, so the buttons step aside */
   body.sheet-full .toggles:not(.open) { opacity: 0; visibility: hidden; }
