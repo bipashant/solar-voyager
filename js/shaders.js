@@ -1166,18 +1166,23 @@ float hash12(vec2 p){
 
 // Detail below the baked resolution at noise coordinates q: a warp of the lookup, and log-normal
 // multipliers for emission and dust that keep their average.
-void detailAt(vec3 q, float fine, float dustK, out vec3 warp, out float mE, out float mD){
+// fineHi (0 to 1) adds a last octave far finer than the baked voxels, 105 and 190 cycles per tile, for crisp
+// wisps up close; it is faded out wherever a pixel is too wide to show it, so it never shimmers.
+void detailAt(vec3 q, float fine, float fineHi, float dustK, out vec3 warp, out float mE, out float mD){
   vec4 a = textureLod(uNoise, q, 0.0);
   warp = (a.xyz - 0.5) * uWarp;
   vec4 b = textureLod(uNoise, q * 2.83 + vec3(0.37, 0.71, 0.13), 0.0);
-  // fractal noise, octaves at 13, 24, 37 and 68 cycles per tile with falling amplitude
-  float zf = ((a.z - 0.5) + 0.65 * (a.w - 0.5) + 0.48 * (b.z - 0.5) + 0.3 * (b.w - 0.5)) / 0.191;
+  vec4 c = fineHi > 0.0 ? textureLod(uNoise, q * 7.93 + vec3(0.61, 0.19, 0.43), 0.0) : vec4(0.5);
+  // fractal noise, octaves at 13, 24, 37 and 68 cycles per tile with falling amplitude (plus the fine pair)
+  float zf = ((a.z - 0.5) + 0.65 * (a.w - 0.5) + 0.48 * (b.z - 0.5) + 0.3 * (b.w - 0.5)
+    + fineHi * (0.38 * (c.z - 0.5) + 0.25 * (c.w - 0.5))) / sqrt(0.0365 + fineHi * fineHi * 0.0043);
   // ridges: thin sheets where one octave crosses its middle value
-  float zr = (0.244 - abs(2.0 * b.y - 1.0)) / 0.169;
+  float zr = mix((0.244 - abs(2.0 * b.y - 1.0)) / 0.169, (0.244 - abs(2.0 * c.y - 1.0)) / 0.169, 0.35 * fineHi);
   float z = mix(zf, zr, uRidge);
   float s = uDetail * fine;
   mE = exp(clamp(s * z - 0.5 * s * s, -6.0, 4.0));
-  float zd = ((b.x - 0.5) + 0.7 * (b.y - 0.5) + 0.45 * (a.w - 0.5)) / 0.189;
+  float zd = ((b.x - 0.5) + 0.7 * (b.y - 0.5) + 0.45 * (a.w - 0.5) + fineHi * 0.4 * (c.x - 0.5))
+    / sqrt(0.0357 + fineHi * fineHi * 0.0034);
   float sd = uDustDetail * fine * dustK;
   mD = exp(clamp(sd * zd - 0.5 * sd * sd, -6.0, 4.0));
 }
@@ -1222,7 +1227,9 @@ void main(){
     vec3 warp = vec3(0.0);
     float mE = 1.0, mD = 1.0;
     if (uDetail + uDustDetail > 0.0 && fine > 0.0) {
-      if (wD < 1.0) { nFetch += 2.0; detailAt(p * uNoiseFreq, fine, 1.0, warp, mE, mD); }
+      // the fine octave's cycles per pixel here: full strength under about 0.1, gone by 0.5
+      float px = t * uPix * uNoiseFreq;
+      if (wD < 1.0) { nFetch += 2.0; detailAt(p * uNoiseFreq, fine, fine * clamp(1.25 - 2.5 * px * 150.0, 0.0, 1.0), 1.0, warp, mE, mD); }
       if (wD > 0.0) {
         // in a close-up the noise is scaled down with the voxels, so it keeps adding detail
         // finer than the volume holds instead of large blotches; dark clouds get ragged edges
@@ -1230,7 +1237,7 @@ void main(){
         nFetch += 2.0;
         float ds = clamp(uVoxel / uDetVoxel, 1.0, 16.0);
         vec3 w2; float e2, d2;
-        detailAt(p * (uNoiseFreq * ds), fine, 0.5, w2, e2, d2);
+        detailAt(p * (uNoiseFreq * ds), fine, fine * clamp(1.25 - 2.5 * px * ds * 150.0, 0.0, 1.0), 0.5, w2, e2, d2);
         warp = mix(warp, w2 / ds, wD); mE = mix(mE, e2, wD); mD = mix(mD, d2, wD);
       }
     }
@@ -1278,9 +1285,26 @@ export const VOL_COMPOSITE_FRAG = /* glsl */`
 uniform sampler2D uTex;
 uniform float uExposure;
 uniform float uAuto;
+uniform vec2 uTexel;
+uniform float uSharp;
+uniform float uClarity;
+uniform float uClarityLod;
 varying vec2 vUv;
 void main(){
   vec4 s = texture2D(uTex, vUv);
+  // clarity: local contrast over a radius of several pixels, from a smoothed coarse mip level, as an
+  // astrophotographer would apply it, so soft glowing structure reads crisp; it keeps the average brightness
+  vec2 m = uTexel * exp2(uClarityLod) * 0.5;
+  vec4 blur = 0.25 * (textureLod(uTex, vUv + vec2(m.x, m.y), uClarityLod) + textureLod(uTex, vUv + vec2(-m.x, m.y), uClarityLod)
+    + textureLod(uTex, vUv + vec2(m.x, -m.y), uClarityLod) + textureLod(uTex, vUv + vec2(-m.x, -m.y), uClarityLod));
+  s.rgb = max(s.rgb + uClarity * (s.rgb - blur.rgb), 0.0);
+  s.a = clamp(s.a + 0.5 * uClarity * (s.a - blur.a), 0.0, 1.0);
+  // light sharpening: push each pixel away from its four neighbours, clamped to their range so edges
+  // don't ring
+  vec4 n = texture2D(uTex, vUv + vec2(0.0, uTexel.y)), so = texture2D(uTex, vUv - vec2(0.0, uTexel.y));
+  vec4 e = texture2D(uTex, vUv + vec2(uTexel.x, 0.0)), w = texture2D(uTex, vUv - vec2(uTexel.x, 0.0));
+  vec4 lo = min(min(min(n, so), min(e, w)), s), hi = max(max(max(n, so), max(e, w)), s);
+  s = clamp(s + uSharp * (4.0 * s - n - so - e - w), lo, hi);
   // the smallest mip level is the average of the frame: inside a bright nebula, stop down like a camera
   float avg = dot(textureLod(uTex, vec2(0.5), 16.0).rgb, vec3(0.3, 0.5, 0.2));
   float k = uExposure * mix(1.0, min(1.0, 0.3 / max(avg, 1e-4)), uAuto);

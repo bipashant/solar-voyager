@@ -694,7 +694,8 @@ Promise.allSettled(jobs).then((results) => {
   const failed = results.filter((r) => r.status === 'rejected').length;
   ui.hideLoader();
   ui.loaded = true;
-  if (embed) { embed.ready(); return; }
+  // a lesson page can hold several views at once, so embeds stop at the 4K sky (the 2K one turns its stars into squares)
+  if (embed) { embed.ready(); sky.upgradeMilkyWay(['milkyway_4k']).catch(() => {}); return; }
   if (failed) ui.toast(`${failed} map${failed > 1 ? 's' : ''} failed to load; those worlds use generated surfaces.`, 5000);
   else if (sharedView?.ev) { /* the event bar says what this is */ }
   else if (sharedView) ui.toast(`Shared view: <b>${state.focus.name}</b>${sharedView.time ? ` on ${new Date(state.simMs).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}.`, 4000);

@@ -124,8 +124,8 @@ export class Sky {
     return lo;
   }
 
-  async upgradeMilkyWay() {
-    const name = this.textures.best(['milkyway_4k', 'milkyway_8k']);
+  async upgradeMilkyWay(names = ['milkyway_4k', 'milkyway_8k']) {
+    const name = this.textures.best(names);
     if (!name) return;
     const hi = await this.textures.load(name);
     const old = this.milkyMat.uniforms.uMilky.value;

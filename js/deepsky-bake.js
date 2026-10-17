@@ -80,7 +80,8 @@ class Grid {
     }
   }
 
-  // Separable blur with a binomial kernel ([1,2,1]/4 or [1,4,6,4,1]/16), zero outside the grid.
+  // Separable blur, zero outside the grid: wide is [1,4,6,4,1]/16 for the coarse levels; the finest level
+  // only gets a light [1,6,1]/8, enough to smooth the splats without halving the resolution.
   blur(wide) {
     const dims = [this.nx, this.ny, this.nz];
     const strides = [4, this.nx * 4, this.nx * this.ny * 4];
@@ -105,7 +106,7 @@ class Grid {
               const c = j + ch;
               d[k + ch] = wide
                 ? (line[c - 8] + line[c + 8] + 4 * (line[c - 4] + line[c + 4]) + 6 * line[c]) * 0.0625
-                : (line[c - 4] + line[c + 4] + 2 * line[c]) * 0.25;
+                : (line[c - 4] + line[c + 4] + 6 * line[c]) * 0.125;
             }
           }
         }

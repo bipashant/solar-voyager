@@ -19,7 +19,8 @@ const EM_GAIN = 0.16;
 const EXT_RGB = new THREE.Vector3(0.6, 0.68, 0.8).divideScalar(0.693); // dust dims blue more than red
 const LO_BUDGET = 160000;
 const HI_MAX = 3; // detailed volumes kept on the GPU at once
-const HI_PARTICLES = 500000; // gas particles to sample for a detailed bake
+const HI_PARTICLES = 1100000; // gas particles to sample for a detailed bake (enough to fill the finer grid)
+const STILL_MS = 220; // the camera must hold still this long before the volumes are drawn at full resolution
 const DET_K = 3; // a close-up region samples this many times more densely again
 
 // How each object is drawn: emission gain, log-normal turbulence of gas and dust (0 = smooth), domain warp
@@ -81,12 +82,24 @@ export class DeepSky {
     };
     // Safari has no navigator.deviceMemory, so platform.js also counts every phone as low on memory
     const small = lowMemory || Math.min(window.screen?.width || 1920, window.screen?.height || 1080) < 700;
-    this.hiBudget = small ? 2.0e6 : 4.0e6;
-    this.detBudget = small ? 1.2e6 : 2.4e6;
-    // pixels ray-marched per frame, adjusted to the frame rate
-    this.volPixels = small ? 0.5e6 : 0.9e6;
+    this.hiBudget = small ? 2.0e6 : 9.0e6;
+    this.detBudget = small ? 1.2e6 : 4.8e6;
+    // Pixels ray-marched per frame while the camera moves, adjusted to the frame rate. Once it stops, the
+    // volumes are drawn once at full resolution and that frame is reused until something changes: they
+    // don't change on their own, so a still view gets full sharpness for the cost of one frame.
+    this.volPixels = small ? 0.6e6 : 1.4e6;
+    this.maxPixels = small ? 2.2e6 : 3.5e6;
+    this.sharpCap = small ? 3.5e6 : 8.4e6; // a full-resolution frame, up to about 4K
     this.fixedPixels = 0;
     this.frameMs = 16;
+    this.lastView = new Float64Array(11).fill(NaN);
+    this.movedAt = 0;
+    this.visSig = -1;
+    this.volDirty = true; // a volume arrived or the visible set changed since the last full-resolution frame
+    this.sharpDone = false;
+    this.mode = 'live'; // 'live' (adaptive resolution), 'sharp' (full resolution, this frame) or 'cached'
+    this.passPixels = this.volPixels;
+    this.skipAdapt = 0;
 
     const G = sceneToGalacticMatrix().elements; // column-major; row i is galactic axis i in scene space
     this.galactic = {
@@ -124,7 +137,7 @@ export class DeepSky {
     });
     this.compMat = new THREE.ShaderMaterial({
       vertexShader: S.VOL_COMPOSITE_VERT, fragmentShader: S.VOL_COMPOSITE_FRAG,
-      uniforms: { uTex: { value: this.rt.texture }, uExposure: { value: 1.25 }, uAuto: { value: 1 } },
+      uniforms: { uTex: { value: this.rt.texture }, uExposure: { value: 1.25 }, uAuto: { value: 1 }, uTexel: { value: new THREE.Vector2(1, 1) }, uSharp: { value: 0 }, uClarity: { value: 0.5 }, uClarityLod: { value: 3 } },
       transparent: true, depthTest: false, depthWrite: false, toneMapped: false,
       blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.SrcAlphaFactor,
     });
@@ -291,7 +304,7 @@ export class DeepSky {
     if (o.vol.hi || o.vol.hiPending) return;
     if (!o.vol.lo) { this.requestLo(o, true); o.vol.wantHi = true; return; }
     o.vol.hiPending = true;
-    const k = THREE.MathUtils.clamp(Math.round(HI_PARTICLES / Math.max(o.vol.gas || 1, 1)), 2, 12);
+    const k = THREE.MathUtils.clamp(Math.round(HI_PARTICLES / Math.max(o.vol.gas || 1, 1)), 2, 24);
     o.vol.hiK = k;
     // straight after any job in progress, ahead of the small ones still waiting
     this.jobs.unshift(this.job(o, 'hi', k, this.hiBudget));
@@ -366,6 +379,7 @@ export class DeepSky {
         this.evict();
       }
       this.useVolume(o);
+      this.volDirty = true;
       for (const fn of this.listeners) fn(o, r.quality, r.ms);
     }
     this.pump();
@@ -496,11 +510,13 @@ export class DeepSky {
     const pxPerRad = viewport.y / (2 * Math.tan((fovDeg * DEG) / 2));
     this.uniforms.uPx.value = pxPerRad;
     // angle covered by one pixel of the volume pass
-    const volScale = Math.min(1, Math.sqrt((this.fixedPixels || this.volPixels) / (viewport.x * viewport.y * this.renderer.getPixelRatio() ** 2)));
-    this.pixAngle = (2 * Math.tan((fovDeg * DEG) / 2)) / (viewport.y * this.renderer.getPixelRatio() * volScale);
-    _q.copy(camQuat).invert();
     const now = performance.now();
+    this.pickMode(camPos, camQuat, viewport, fovDeg, opt, now);
+    const volScale = Math.min(1, Math.sqrt(this.passPixels / (viewport.x * viewport.y * pr * pr)));
+    this.pixAngle = (2 * Math.tan((fovDeg * DEG) / 2)) / (viewport.y * pr * volScale);
+    _q.copy(camQuat).invert();
     this.anyVolume = false;
+    let visSig = 0;
 
     for (const o of this.objects) {
       o.rel.copy(o.pos).sub(camPos);
@@ -542,6 +558,7 @@ export class DeepSky {
       o.volMesh.visible = !!v;
       if (v) {
         this.anyVolume = true;
+        visSig = (visSig * 31 + this.objects.indexOf(o) + 1 + (o.vol.det ? 1000 : 0)) % 1e9;
         const g = EM_GAIN * o.look.em * fade;
         o.u.uEm.value = v.emScale * g;
         o.u.uExt.value = v.extScale * fade;
@@ -569,6 +586,8 @@ export class DeepSky {
       }
     }
 
+    if (visSig !== this.visSig) { this.visSig = visSig; this.volDirty = true; }
+
     // the Sun, once the planets are out of sight
     const su = this.sun.geometry.attributes.position;
     _v.copy(camPos).negate().divideScalar(LY_KM);
@@ -588,10 +607,36 @@ export class DeepSky {
 
   // Frame time, to adapt how many pixels the volumes are ray-marched at.
   setFrameTime(dt) {
+    // a full-resolution frame is slow on purpose, and a reused one is free: neither says anything about
+    // what the moving view can afford
+    if (this.skipAdapt > 0) { this.skipAdapt--; return; }
+    if (this.mode !== 'live') return;
     this.frameMs += (dt * 1000 - this.frameMs) * 0.05;
     if (!this.anyVolume || this.fixedPixels) return;
     if (this.frameMs > 24) this.volPixels = Math.max(0.2e6, this.volPixels * 0.97);
-    else if (this.frameMs < 17) this.volPixels = Math.min(2.2e6, this.volPixels * 1.01);
+    else if (this.frameMs < 17) this.volPixels = Math.min(this.maxPixels, this.volPixels * 1.01);
+  }
+
+  // Moving: ray-march at the adaptive budget. Still: one frame at full resolution, then reuse it.
+  pickMode(camPos, camQuat, viewport, fovDeg, opt, now) {
+    const pr = this.renderer.getPixelRatio();
+    const L = this.lastView;
+    // still means the camera has stopped to within a millionth of its distance from what it's looking at
+    const ref = opt.focus?.pos ? Math.max(1, camPos.distanceTo(opt.focus.pos)) : Math.max(1, camPos.length());
+    const tol = ref * 1e-6;
+    const moved = !(Math.abs(camPos.x - L[0]) <= tol && Math.abs(camPos.y - L[1]) <= tol && Math.abs(camPos.z - L[2]) <= tol
+      && Math.abs(camQuat.x - L[3]) < 1e-7 && Math.abs(camQuat.y - L[4]) < 1e-7 && Math.abs(camQuat.z - L[5]) < 1e-7 && Math.abs(camQuat.w - L[6]) < 1e-7
+      && fovDeg === L[7] && viewport.x === L[8] && viewport.y === L[9] && pr === L[10]);
+    if (moved) {
+      L.set([camPos.x, camPos.y, camPos.z, camQuat.x, camQuat.y, camQuat.z, camQuat.w, fovDeg, viewport.x, viewport.y, pr]);
+      this.movedAt = now;
+      this.sharpDone = false;
+    }
+    const full = Math.min(this.sharpCap, viewport.x * viewport.y * pr * pr);
+    if (this.fixedPixels) { this.mode = 'live'; this.passPixels = this.fixedPixels; }
+    else if (now - this.movedAt < STILL_MS) { this.mode = 'live'; this.passPixels = this.volPixels; }
+    else if (!this.sharpDone || this.volDirty) { this.mode = 'sharp'; this.passPixels = full; }
+    else { this.mode = 'cached'; this.passPixels = full; }
   }
 
   // Volumes into the off-screen target, composited over what is already drawn; then the stars.
@@ -599,16 +644,24 @@ export class DeepSky {
     if (this.anyVolume) {
       renderer.getDrawingBufferSize(this._size);
       const W = this._size.x, H = this._size.y;
-      const px = this.fixedPixels || this.volPixels;
-      const s = Math.min(1, Math.sqrt(px / (W * H)));
-      const w = Math.max(1, Math.round(W * s)), h = Math.max(1, Math.round(H * s));
-      if (this.rt.width !== w || this.rt.height !== h) this.rt.setSize(w, h);
-      renderer.setRenderTarget(this.rt);
-      renderer.setClearColor(0x000000, 1);
-      renderer.clear(true, false, false);
-      this.camera.layers.set(1);
-      renderer.render(this.scene, this.camera);
-      renderer.setRenderTarget(null);
+      if (this.mode !== 'cached') {
+        const s = Math.min(1, Math.sqrt(this.passPixels / (W * H)));
+        const w = Math.max(1, Math.round(W * s)), h = Math.max(1, Math.round(H * s));
+        if (this.rt.width !== w || this.rt.height !== h) this.rt.setSize(w, h);
+        renderer.setRenderTarget(this.rt);
+        renderer.setClearColor(0x000000, 1);
+        renderer.clear(true, false, false);
+        this.camera.layers.set(1);
+        renderer.render(this.scene, this.camera);
+        renderer.setRenderTarget(null);
+        if (this.mode === 'sharp') { this.sharpDone = true; this.volDirty = false; this.skipAdapt = 2; }
+      }
+      // sharpen to make up for the stretch when the pass is smaller than the screen, and a touch anyway
+      const cu = this.compMat.uniforms;
+      cu.uTexel.value.set(1 / this.rt.width, 1 / this.rt.height);
+      cu.uSharp.value = this.rt.width < W * 0.95 ? 0.55 : 0.2;
+      // the clarity radius stays about 8 screen pixels whatever size the pass is
+      cu.uClarityLod.value = Math.max(1, 3 + Math.log2(this.rt.width / W));
       renderer.render(this.compScene, this.compCam);
     }
     this.camera.layers.set(0);
