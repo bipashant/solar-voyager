@@ -141,6 +141,14 @@
   <button class="pill-btn row-only" type="button" data-action="poster" title="Make a poster of the solar system on any date (P)"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="2.5" width="12" height="15" rx="1.2"/><circle cx="10" cy="9" r="1.6"/><circle cx="10" cy="9" r="4.2"/><path d="M7 14.5h6"/></svg><span>Poster</span></button>
   <button class="icon-btn row-only" type="button" data-action="help" aria-label="Controls and help" title="Controls and help">?</button>
   <button class="icon-btn row-only" type="button" data-action="fullscreen" aria-label="Toggle full screen" title="Full screen"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5"/></svg></button>
+  <button class="icon-btn share-btn" type="button" id="btn-share" aria-haspopup="true" aria-expanded="false" aria-controls="share-menu" aria-label="Share this view" title="Share this view">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 12.5V3M6.5 6.2L10 2.8l3.5 3.4"/><path d="M6 8.8H4.8v8.4h10.4V8.8H14"/></svg>
+  </button>
+  <div class="share-menu" id="share-menu" role="menu" hidden>
+    <button type="button" role="menuitem" id="share-link"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 12.5V3M6.5 6.2L10 2.8l3.5 3.4"/><path d="M6 8.8H4.8v8.4h10.4V8.8H14"/></svg><span><b>Share this view</b><small>A link that opens exactly what you see</small></span></button>
+    <button type="button" role="menuitem" id="share-copy"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="9.5" height="9.5" rx="2"/><path d="M4.5 13V5.5a2 2 0 0 1 2-2H13"/></svg><span><b>Copy link</b><small>Same link, straight to the clipboard</small></span></button>
+    <button type="button" role="menuitem" id="share-image"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4.5" width="14" height="11" rx="2"/><circle cx="8" cy="9" r="1.6"/><path d="M3.5 14l4.2-3.6 3 2.4 2.6-2 3.2 2.8"/></svg><span><b>Save image</b><small>A picture of this view</small></span></button>
+  </div>
   <button class="icon-btn sound-btn" type="button" id="btn-sound" aria-pressed="true" aria-label="Sound" title="Sound on · tap to mute (M)">
     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 8v4h3l4.5 3.5v-11L6.5 8z"/><path class="w1" d="M13.4 7.4a3.6 3.6 0 0 1 0 5.2"/><path class="w2" d="M15.6 5.2a6.6 6.6 0 0 1 0 9.6"/><path class="x" d="M13.2 7.6l4.4 4.8M17.6 7.6l-4.4 4.8"/></svg>
   </button>

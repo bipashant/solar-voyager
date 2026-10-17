@@ -13,6 +13,7 @@ import { PosterStudio } from './poster.js';
 import { Guide } from './guide.js';
 import { Sheet } from './sheet.js';
 import { Ambience } from './audio.js';
+import { ViewLink } from './viewlink.js';
 import { SPEEDS, TRAVEL_MODES, TIME_RATES } from './data.js';
 import { jdFromMs, DEG } from './ephemeris.js';
 import { fmtDuration } from './format.js';
@@ -547,6 +548,33 @@ const guide = new Guide(app);
 app.startTour = () => guide.start();
 app.guide = guide;
 
+// ---------------------------------------------------------------- shareable views in the address bar
+let pendingCapture = null; // read the canvas right after a frame is drawn (WebGL clears it afterwards)
+const viewLink = new ViewLink(app, {
+  applyCamera(body, p) {
+    system.update(jdFromMs(state.simMs));
+    if (body.deep) deep.build(body);
+    state.focus = body;
+    rig.enabled = true;
+    ui.showFlight(false);
+    const alt = p.alt > 0 ? p.alt : arrivalDistance(body) - (body.coreRadius ?? body.maxRadius);
+    camPos.copy(body.pos).add(new THREE.Vector3(0, 0, alt + body.maxRadius));
+    rig.syncFrom(body, camPos, camQuat);
+    if (p.yaw !== null) rig.yaw = rig.tYaw = p.yaw * DEG;
+    if (p.pitch !== null) rig.pitch = rig.tPitch = THREE.MathUtils.clamp(p.pitch * DEG, -1.55, 1.55);
+    rig.tLogAlt = Math.log(alt);
+    rig.clampAlt();
+    rig.logAlt = rig.tLogAlt;
+    if (p.look) { rig.lookYaw = rig.tLookYaw = p.look[0] * DEG; rig.lookPitch = rig.tLookPitch = p.look[1] * DEG; }
+    rig.update(0, camPos, camQuat);
+    app.sheet?.snap('peek');
+  },
+  capture(cb) { pendingCapture = cb; },
+});
+app.viewLink = viewLink;
+const sharedView = viewLink.parse(location.hash);
+if (sharedView && !viewLink.apply(sharedView)) history.replaceState(null, '', location.pathname);
+
 // ---------------------------------------------------------------- loading
 manager.onProgress = (url, loaded, total) => ui.setLoader(loaded / Math.max(total, 1));
 const jobs = [...system.initialTextureJobs(), sky.loadMilkyWay()];
@@ -555,6 +583,7 @@ Promise.allSettled(jobs).then((results) => {
   ui.hideLoader();
   ui.loaded = true;
   if (failed) ui.toast(`${failed} map${failed > 1 ? 's' : ''} failed to load; those worlds use generated surfaces.`, 5000);
+  else if (sharedView) ui.toast(`Shared view: <b>${state.focus.name}</b>${sharedView.time ? ` on ${new Date(state.simMs).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}.`, 4000);
   else if (!guide.maybeStart()) ui.toast(ui.toggles.console
     ? 'Pick a destination and speed below, then press <b>Engage</b>.'
     : 'Tap a world to choose it, then the <b>arrow</b> below to fly there. <b>View</b> brings back the rest.', 5000);
@@ -656,6 +685,8 @@ function frame(now) {
   renderer.clearDepth();
   if (app.solarVisible) renderer.render(scene, camera);
   if (streaks.visible) renderer.render(fxScene, camera);
+  if (pendingCapture) { const cb = pendingCapture; pendingCapture = null; try { cb(canvas); } catch (err) { console.warn(err); cb(null); } }
+  viewLink.tick(now);
 
   ui.updateLabels(viewport);
   ui.updateZoom();

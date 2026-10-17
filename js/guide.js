@@ -98,7 +98,7 @@ export class Guide {
 
   // ---------------------------------------------------------------- lifecycle
   maybeStart() {
-    if (seen() || location.hash === '#poster') return false;
+    if (seen() || location.hash === '#poster' || location.hash.includes('at=')) return false; // not over a shared view
     setTimeout(() => this.start(), 900);
     return true;
   }

@@ -103,6 +103,7 @@ In VS Code, the *Live Server* extension also works.
 | N, or the **Galaxies & nebulae** button | Show or hide the 3D galaxies, nebulae and star clusters and their labels (the one you are visiting stays) |
 | G | Show or hide spacetime curvature (same as the **Curvature** button) |
 | **Guided tour** (first launch, or Help › Take the guided tour, or View › Guided tour) | A one-minute walkthrough that does each step for real: a finger drags, pinches and taps while the camera moves, the Moon becomes your destination and the ship flies there; then it asks you to try, and moves on when you do. Esc ends it |
+| **Share** button (top right) | The address bar always holds the current view, like Google Maps: world, height, angle, date, clock speed, destination and layers (e.g. `#at=saturn&alt=655500&yaw=-34.9&pitch=25.8&time=2025-03-14T21:05Z&rate=pause&on=curvature`). Share sends that link (the share sheet on phones, the clipboard on desktop); Copy link copies it; Save image saves a picture of the view with a small caption. Opening a link lands on exactly that view |
 | **Sound** (View menu) | An ambient space soundtrack, synthesised live in the browser (no audio files). It fades in at 75% volume on your first tap or key press, because mobile browsers keep sound off until you touch the page. It changes key with where you are, opens up with a faint rush during flights and swells on arrival. Switch it off under View; the choice is remembered |
 | P, or the **Poster** button | Open the poster studio: the solar system on any date from 1800 to 2050, as a print-ready PNG (link straight to it with `#poster`) |
 | H, or the eye button (top right) | Hide every control for a clear, full-screen view; press again, or tap the small eye, to bring them back |
@@ -738,6 +739,7 @@ js/controls.js        CameraRig: orbit (in a deep-sky object's own frame), log-a
                       tap/double-tap, zoom API
 js/travel.js          Flight planning, cinematic log profile, real-time mode
 js/sheet.js           Phone bottom sheet: drag stops, search, world chips, flight settings, details
+js/viewlink.js        Shareable views: current view in the URL (replaceState), share link, copy link, save image
 js/audio.js           Generated ambient soundtrack (Web Audio): drone, breath, bells, reverb; follows the journey
 js/guide.js           Guided tour: live demos of each gesture, then waits for you to try it
 js/platform.js        Device detection, mobile memory limits, haptics, sharing and app lifecycle (web and iOS app)

@@ -119,3 +119,34 @@ export function onResume(fn) {
 export function appReady() {
   plugin('SplashScreen')?.hide({ fadeOutDuration: 250 })?.catch?.(() => {});
 }
+
+// ---------------------------------------------------------------- sharing links
+// Where shared links point. On the web, this page; in the iOS app (served from capacitor://localhost),
+// the public site, so a friend without the app can open the view in a browser.
+const PUBLIC_SITE = 'https://voyager-3.vercel.app/';
+export const PUBLIC_URL = () => (isNative || !/^https?:/.test(location.protocol) ? PUBLIC_SITE : location.origin + location.pathname);
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* fall back below */ }
+  const t = document.createElement('textarea');
+  t.value = text; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.append(t); t.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  t.remove();
+  return ok;
+}
+
+// Returns 'shared', 'copied', 'cancelled' or 'failed'. Phones get the share sheet (which also offers Copy);
+// desktops copy to the clipboard.
+export async function shareLink(url, title, { copyOnly = false } = {}) {
+  if (!copyOnly && isNative) {
+    try { await plugin('Share').share({ title, url, dialogTitle: 'Share this view' }); return 'shared'; } catch (err) {
+      if (/cancel/i.test(String(err?.message || err))) return 'cancelled';
+    }
+  }
+  if (!copyOnly && isTouch && navigator.share) {
+    try { await navigator.share({ title, url }); return 'shared'; } catch (err) { if (err?.name === 'AbortError') return 'cancelled'; }
+  }
+  return (await copyText(url)) ? 'copied' : 'failed';
+}
