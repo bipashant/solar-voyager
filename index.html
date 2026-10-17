@@ -308,6 +308,21 @@
   </div>
 </section>
 
+<!-- Event viewpoints (js/eventbar.js), shown when arriving from events.html -->
+<section id="event-bar" class="event-bar" aria-label="Event viewpoints" hidden>
+  <div class="evb-head">
+    <a class="evb-back" href="events.html" title="All events"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5L7 10l5.5 5.5"/></svg></a>
+    <div class="evb-titles"><span class="evb-meta"><b id="evb-kind"></b> · <span id="evb-time"></span></span><span id="evb-title"></span></div>
+    <button id="evb-close" class="evb-close" type="button" aria-label="Close"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>
+  </div>
+  <div class="evb-nav">
+    <button id="evb-prev" class="evb-arrow" type="button" aria-label="Previous view (&#91;)"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5L7 10l5.5 5.5"/></svg></button>
+    <div id="evb-povs" class="evb-povs" role="tablist"></div>
+    <button id="evb-next" class="evb-arrow" type="button" aria-label="Next view (&#93;)"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5L13 10l-5.5 5.5"/></svg></button>
+  </div>
+  <p id="evb-note" class="evb-note"></p>
+</section>
+
 <div id="toast" role="status" aria-live="polite"></div>
 
 <!-- Guided tour (js/guide.js): a spotlight, up to two fake touches, a scroll wheel and the step card -->

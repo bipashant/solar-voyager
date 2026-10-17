@@ -37,7 +37,7 @@ function render(kind) {
         <div class="ev-time">${local.format(new Date(t))} <span>· ${utc.format(new Date(t))} UTC</span></div>
         <p class="ev-blurb">${esc(e.blurb)}</p>
         <p class="ev-where"><span>Where</span> ${esc(e.where)}</p>
-        <div class="ev-povs">${e.povs.map((v) => `<a class="ev-pov" href="${povLink(v.p)}"><b>${esc(v.label)} ${ARROW}</b><small>${esc(v.note)}</small></a>`).join('')}</div>
+        <div class="ev-povs">${e.povs.map((v, i) => `<a class="ev-pov" href="${povLink(v.p, 'index.html', e.id, i)}"><b>${esc(v.label)} ${ARROW}</b><small>${esc(v.note)}</small></a>`).join('')}</div>
       </div>
     </li>`;
   }).join('');

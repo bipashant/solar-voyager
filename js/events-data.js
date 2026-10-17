@@ -122,8 +122,9 @@ export const KINDS = {
 };
 
 // The app link for one point of view: paused on the moment, with the event's destination left alone.
-export function povLink(p, base = 'index.html') {
+export function povLink(p, base = 'index.html', ev = null, v = 0) {
   const q = new URLSearchParams();
+  if (ev) { q.set('ev', ev); q.set('v', String(v)); } // lets the app show the event's viewpoint bar
   q.set('at', p.at);
   q.set('pov', p.pov);
   if (p.alt) q.set('alt', String(Math.round(p.alt)));

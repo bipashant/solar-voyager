@@ -43,6 +43,7 @@ export class ViewLink {
   encode() {
     const { state, rig, ui } = this.app;
     const q = new URLSearchParams();
+    if (this.event) { q.set('ev', this.event.id); q.set('v', String(this.event.v)); } // kept while the event bar is open
     q.set('at', state.focus.id);
     q.set('alt', String(sig(Math.exp(rig.tLogAlt))));
     let yaw = (rig.tYaw * DEG) % 360;
@@ -77,7 +78,7 @@ export class ViewLink {
     return {
       at: q.get('at'), alt: num('alt'), yaw: num('yaw'), pitch: num('pitch'),
       look: look.length === 2 && look.every(Number.isFinite) ? look : null,
-      pov: q.get('pov'), time: q.get('time'), rate: q.get('rate'), to: q.get('to'), speed: q.get('speed'), mode: q.get('mode'),
+      ev: q.get('ev'), v: Number(q.get('v')) || 0, pov: q.get('pov'), time: q.get('time'), rate: q.get('rate'), to: q.get('to'), speed: q.get('speed'), mode: q.get('mode'),
       on: (q.get('on') || '').split(',').filter(Boolean), off: (q.get('off') || '').split(',').filter(Boolean),
     };
   }
@@ -109,6 +110,7 @@ export class ViewLink {
     ui.refreshTrip(true);
     this.applying = false;
     this.last = this.encode();
+    this.onApply?.(p);
     return true;
   }
 

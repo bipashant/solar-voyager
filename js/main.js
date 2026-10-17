@@ -14,6 +14,7 @@ import { Guide } from './guide.js';
 import { Sheet } from './sheet.js';
 import { Ambience } from './audio.js';
 import { ViewLink } from './viewlink.js';
+import { EventBar } from './eventbar.js';
 import { SPEEDS, TRAVEL_MODES, TIME_RATES } from './data.js';
 import { jdFromMs, DEG } from './ephemeris.js';
 import { fmtDuration } from './format.js';
@@ -606,6 +607,8 @@ const viewLink = new ViewLink(app, {
   capture(cb) { pendingCapture = cb; },
 });
 app.viewLink = viewLink;
+const eventBar = new EventBar(app);
+viewLink.onApply = (p) => { if (p.ev) { if (eventBar.event?.id !== p.ev || eventBar.v !== p.v) eventBar.show(p.ev, p.v); } };
 const sharedView = viewLink.parse(location.hash);
 if (sharedView && !viewLink.apply(sharedView)) history.replaceState(null, '', location.pathname);
 
@@ -617,6 +620,7 @@ Promise.allSettled(jobs).then((results) => {
   ui.hideLoader();
   ui.loaded = true;
   if (failed) ui.toast(`${failed} map${failed > 1 ? 's' : ''} failed to load; those worlds use generated surfaces.`, 5000);
+  else if (sharedView?.ev) { /* the event bar says what this is */ }
   else if (sharedView) ui.toast(`Shared view: <b>${state.focus.name}</b>${sharedView.time ? ` on ${new Date(state.simMs).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}.`, 4000);
   else if (!guide.maybeStart()) ui.toast(ui.toggles.console
     ? 'Pick a destination and speed below, then press <b>Engage</b>.'
