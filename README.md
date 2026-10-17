@@ -741,8 +741,10 @@ js/controls.js        CameraRig: orbit (in a deep-sky object's own frame), log-a
 js/travel.js          Flight planning, cinematic log profile, real-time mode
 js/sheet.js           Phone bottom sheet: drag stops, search, world chips, flight settings, details
 events.html, js/events.js, js/events-data.js, css/events.css   Eclipses & alignments page and its event list
-learn.html, lessons/, css/learn.css, js/learn/   Voyager Academy: a six-lesson course. Each lesson scene is this app in an iframe
-                      (js/embed.js), driven like a video by a timeline of captions, clock changes and camera moves
+learn.html, lessons/, css/learn.css, js/learn/   Voyager Academy: three courses, 16 lessons (catalogue in js/learn/course.js).
+                      Each lesson scene is this app in an iframe (js/embed.js), driven like a video by a timeline of
+                      captions, clock changes and camera moves. Diagrams: diagrams.js (How the Sky Works),
+                      diagrams-planets.js (A Tour of the Planets), diagrams-deep.js (Gravity, Stars and Galaxies)
 audio/narration/      The lessons' narration, pre-recorded with a neural voice (tools/narrate.py)
 tools/                narration-extract.mjs + narrate.py: list every caption, then record whatever is missing
 js/viewlink.js        Shareable views: current view in the URL (replaceState), share link, copy link, save image
@@ -775,6 +777,9 @@ node tools/narration-extract.mjs     # list the captions -> tools/narration-mani
 python3 tools/narrate.py             # record the new or changed ones
 python3 tools/narrate.py --prune     # (optional) delete recordings of captions that no longer exist
 ```
+
+To add a lesson: write `lessons/<name>.html` (copy an existing one), add an entry with a unique `id` to a course in
+`js/learn/course.js`, then run the two narration commands above.
 
 `tools/narrate.py` has the one-time setup (a pip package, espeak-ng, and a 350 MB model download) at the top, and
 `--sample` renders one caption in seven voices so you can choose another by changing `VOICE`.

@@ -141,8 +141,16 @@ export class Embed {
     const body = (v.at && app.lookup(v.at)) || app.state.focus;
     const snap = app.travel.active || body !== app.state.focus || v.snap;
     app.setFov(v.fov, snap); // a telescope view, or back to the normal one
+    const was = app.state.focus;
     if (snap) this.hooks.place(body, v);
     else this.hooks.aim(body, v);
+    if (app.state.focus !== was) {
+      // as a shared link does: the new world's own labels (the old ones would land on, or crash on, the new world),
+      // and the new world as the destination, so the old one isn't left tagged "destination"
+      app.state.destination = body;
+      app.ui.syncSelects();
+      app.ui.buildFeatureLabels();
+    }
     this.track = v.track && v.pov ? { body, v: { ...v, snap: false } } : null;
   }
 

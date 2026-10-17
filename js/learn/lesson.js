@@ -4,19 +4,22 @@
 // A lesson page is ordinary HTML with placeholders, plus one call:
 //   <figure data-scene="shadow"></figure>  <div data-quiz="check"></div>  <div data-diagram="eclipseCones"></div>
 //   initLesson({ id: 'eclipses', scenes: { shadow: {...} }, quizzes: { check: {...} } });
-import { COURSE, lessonIndex, isLocked, CHECKOUT_URL } from './course.js';
+import { COURSES, findLesson, isLocked, CHECKOUT_URL } from './course.js';
 import { ScenePlayer } from './player.js';
 import { Quiz } from './quiz.js';
-import { DIAGRAMS } from './diagrams.js';
+import { DIAGRAMS as SKY } from './diagrams.js';
+import { DIAGRAMS as PLANETS } from './diagrams-planets.js';
+import { DIAGRAMS as DEEP } from './diagrams-deep.js';
 import { progress } from './progress.js';
 
 const ARROW = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5"/></svg>';
 const BACK = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5L7 10l5.5 5.5"/></svg>';
+const DIAGRAMS = { ...SKY, ...PLANETS, ...DEEP };
 const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/></svg>';
 
 export function initLesson({ id, scenes = {}, quizzes = {} }) {
-  const i = lessonIndex(id);
-  const meta = COURSE.lessons[i];
+  const where = findLesson(id);
+  const { course, lesson: meta, index: i } = where;
   document.documentElement.style.setProperty('--accent', meta.color);
   progress.visit(id);
 
@@ -29,7 +32,7 @@ export function initLesson({ id, scenes = {}, quizzes = {} }) {
   progress.setContents(id, contents);
   window.voyagerLesson = { id, scenes }; // read by tools/narration-extract.mjs, to list the captions to record
 
-  topBar(meta, i, contents);
+  topBar(course, meta, i, contents);
   const onStar = (kind, what) => starToast(kind, what);
 
   for (const el of document.querySelectorAll('[data-scene]')) {
@@ -43,23 +46,23 @@ export function initLesson({ id, scenes = {}, quizzes = {} }) {
   for (const el of document.querySelectorAll('[data-diagram]')) {
     try { DIAGRAMS[el.dataset.diagram]?.(el); } catch (err) { console.warn('diagram', el.dataset.diagram, err); }
   }
-  nextUp(i);
+  nextUp(where);
   if (isLocked(id)) gate(meta);
 }
 
 // ---------------------------------------------------------------- course bar
-function topBar(meta, i, contents) {
+function topBar(course, meta, i, contents) {
   const bar = document.createElement('header');
   bar.className = 'l-top';
   bar.innerHTML = `
-    <a class="l-course" href="../learn.html">${BACK}<span><small>Course</small>${COURSE.title}</span></a>
-    <nav class="l-steps" aria-label="Lessons">${COURSE.lessons.map((l, k) => `<a href="${l.file}" style="--c:${l.color}" class="${k === i ? 'now' : ''}" title="${k + 1}. ${l.title}" aria-label="Lesson ${k + 1}: ${l.title}"${k === i ? ' aria-current="page"' : ''}>${k + 1}</a>`).join('')}</nav>
+    <a class="l-course" href="../learn.html">${BACK}<span><small>Course</small>${course.title}</span></a>
+    <nav class="l-steps" aria-label="Lessons">${course.lessons.map((l, k) => `<a href="${l.file}" style="--c:${l.color}" class="${k === i ? 'now' : ''}" title="${k + 1}. ${l.title}" aria-label="Lesson ${k + 1}: ${l.title}"${k === i ? ' aria-current="page"' : ''}>${k + 1}</a>`).join('')}</nav>
     <span class="l-stars" title="Stars earned in this lesson">${STAR}<b></b></span>`;
   document.body.prepend(bar);
   const update = () => {
     const s = progress.summary(meta.id, contents);
     bar.querySelector('.l-stars b').textContent = `${s.stars} / ${s.max}`;
-    COURSE.lessons.forEach((l, k) => {
+    course.lessons.forEach((l, k) => {
       const c = progress.contents(l.id);
       if (c && progress.summary(l.id, c).complete) bar.querySelectorAll('.l-steps a')[k].classList.add('done');
     });
@@ -82,14 +85,16 @@ function starToast(kind, what) {
 }
 
 // ---------------------------------------------------------------- next lesson
-function nextUp(i) {
+// The next lesson in this course; after a course's last lesson, the first lesson of the next course.
+function nextUp({ course, courseIndex, index: i }) {
   const slot = document.querySelector('[data-next]');
   if (!slot) return;
-  const next = COURSE.lessons[i + 1];
+  const next = course.lessons[i + 1];
+  const nextCourse = COURSES[courseIndex + 1];
   slot.className = 'l-next';
-  slot.innerHTML = next
-    ? `<a href="${next.file}" style="--c:${next.color}"><small>Next · Lesson ${i + 2}</small><b>${next.title}</b><span>${next.question}</span>${ARROW}</a>`
-    : `<a href="../learn.html" style="--c:var(--accent)"><small>You finished the course</small><b>Back to the course</b><span>See your stars and pick a lesson to replay.</span>${ARROW}</a>`;
+  if (next) slot.innerHTML = `<a href="${next.file}" style="--c:${next.color}"><small>Next · Lesson ${i + 2}</small><b>${next.title}</b><span>${next.question}</span>${ARROW}</a>`;
+  else if (nextCourse) slot.innerHTML = `<a href="${nextCourse.lessons[0].file}" style="--c:${nextCourse.color}"><small>You finished ${course.title} · Next course</small><b>${nextCourse.title}</b><span>Lesson 1: ${nextCourse.lessons[0].title}</span>${ARROW}</a>`;
+  else slot.innerHTML = `<a href="../learn.html" style="--c:var(--accent)"><small>That was the last lesson</small><b>Back to the courses</b><span>See your stars and pick a lesson to replay.</span>${ARROW}</a>`;
 }
 
 // ---------------------------------------------------------------- locked lessons (when PAYWALL is on)

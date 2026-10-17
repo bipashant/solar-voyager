@@ -443,8 +443,7 @@ export class ScenePlayer {
     cancelAnimationFrame(this.raf);
     this.send({ type: 'time', ms: this.stateAt(this.dur).sim, rate: 'pause' });
     if (progress.sceneDone(this.lesson, this.scene.id)) this.onStar?.('scene', this.scene.title);
-    this.bigButton('replay');
-    this.note(this.scene.challenges?.length ? 'Scene complete ★ &nbsp;Now it’s your turn: try the challenges below.' : 'Scene complete ★ &nbsp;Drag, zoom and explore, or replay.', 0);
+    this.note(this.scene.challenges?.length ? 'Scene complete ★ &nbsp;Now it’s your turn: try the challenges below.' : 'Scene complete ★ &nbsp;Drag, zoom and explore, or press replay on the bar.', 0);
     this.render();
   }
 
@@ -459,7 +458,6 @@ export class ScenePlayer {
     const st = this.stateAt(this.t);
     this.beat = -2; // forces the caption to refresh
     this.apply(st, { time: true, view: !this.camFree, layers: true, marks: true, snap: true });
-    if (this.bigMode === 'replay') this.bigButton('play');
     this.render(true);
   }
 

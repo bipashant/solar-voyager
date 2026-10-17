@@ -752,3 +752,6 @@ function lightRace(root) {
 }
 
 export const DIAGRAMS = { dayNight, seasonsOrbit, sunAngle, phaseDial, eclipseCones, eclipseYear, planetAges, keplerLab, scaleModel, lightRace };
+
+// The building blocks, for the other courses' diagrams (diagrams-planets.js, diagrams-deep.js).
+export { el, card, slider, player, readouts, segmented, defs, sphere, litPath, sunRays, DEG, clamp, PLANETS };
