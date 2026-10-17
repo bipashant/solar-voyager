@@ -1,0 +1,4 @@
+# For tools/narrate.py. Python 3.9-3.12. Also needs espeak-ng (brew install espeak-ng, or apt install espeak-ng).
+kokoro-onnx>=0.4
+lameenc>=1.7
+numpy

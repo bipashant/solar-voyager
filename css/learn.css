@@ -177,6 +177,7 @@ b, strong { color: var(--ink); font-weight: 600; }
 .sp-btn:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
 .sp-btn[aria-pressed="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .sp-btn[aria-pressed="false"] .w { display: none; }
+.sp-voice { padding: 0 12px 0 10px; font: 600 13px var(--font-body); }
 .sp-play { width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink); }
 .sp-play:hover { color: var(--accent-ink); filter: brightness(1.08); }
 .sp-play svg { width: 22px; height: 22px; }
@@ -445,6 +446,8 @@ b, strong { color: var(--ink); font-weight: 600; }
   .sp-track { order: -1; flex: 1 1 100%; }
   .sp-time { margin-right: auto; }
   .sp-guide span { display: none; }
+  .sp-voice { padding: 0 9px; }
+  .sp-voice span { display: none; }
   .sp-rate { order: 5; flex: 1 1 100%; justify-content: center; }
   .qz { padding: 18px 16px; }
   .qz-q { font-size: 19px; }

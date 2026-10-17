@@ -27,6 +27,7 @@ export function initLesson({ id, scenes = {}, quizzes = {} }) {
     quizzes: Object.fromEntries(Object.entries(quizzes).filter(([, q]) => q.kind !== 'predict').map(([k, q]) => [k, q.questions.length])),
   };
   progress.setContents(id, contents);
+  window.voyagerLesson = { id, scenes }; // read by tools/narration-extract.mjs, to list the captions to record
 
   topBar(meta, i, contents);
   const onStar = (kind, what) => starToast(kind, what);

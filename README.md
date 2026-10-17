@@ -741,6 +741,10 @@ js/controls.js        CameraRig: orbit (in a deep-sky object's own frame), log-a
 js/travel.js          Flight planning, cinematic log profile, real-time mode
 js/sheet.js           Phone bottom sheet: drag stops, search, world chips, flight settings, details
 events.html, js/events.js, js/events-data.js, css/events.css   Eclipses & alignments page and its event list
+learn.html, lessons/, css/learn.css, js/learn/   Voyager Academy: a six-lesson course. Each lesson scene is this app in an iframe
+                      (js/embed.js), driven like a video by a timeline of captions, clock changes and camera moves
+audio/narration/      The lessons' narration, pre-recorded with a neural voice (tools/narrate.py)
+tools/                narration-extract.mjs + narrate.py: list every caption, then record whatever is missing
 js/viewlink.js        Shareable views: current view in the URL (replaceState), share link, copy link, save image
 js/audio.js           Generated ambient soundtrack (Web Audio): drone, breath, bells, reverb; follows the journey
 js/guide.js           Guided tour: live demos of each gesture, then waits for you to try it
@@ -755,6 +759,25 @@ docs/images/          Screenshots for this README
 ```
 
 The code is plain ES modules with no build step. Edit a file and refresh the page.
+
+### Voyager Academy narration
+
+The lessons' read-aloud is recorded ahead of time with [Kokoro](https://github.com/thewh1teagle/kokoro-onnx), a free
+open-source neural voice (Apache 2.0, so fine for a paid product), and shipped as small MP3s (about 6 KB a second).
+It needs nothing at run time: the player streams the file for the caption it's showing and fetches the next one while
+it plays. If a recording is missing or won't load it falls back to the browser's own voice, which is much more robotic.
+
+Each file is named by a hash of its caption text, so editing a caption re-records only that line, and Vercel can cache
+the files forever. After changing any caption:
+
+```bash
+node tools/narration-extract.mjs     # list the captions -> tools/narration-manifest.json
+python3 tools/narrate.py             # record the new or changed ones
+python3 tools/narrate.py --prune     # (optional) delete recordings of captions that no longer exist
+```
+
+`tools/narrate.py` has the one-time setup (a pip package, espeak-ng, and a 350 MB model download) at the top, and
+`--sample` renders one caption in seven voices so you can choose another by changing `VOICE`.
 
 ---
 

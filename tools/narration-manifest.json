@@ -1,0 +1,907 @@
+{
+  "lines": [
+    {
+      "lesson": "day-night",
+      "id": "fe53197856441ea1",
+      "where": "spin beat 0",
+      "text": "Earth, with the Sun away to the left. Look at the line down the middle: lit on one side, dark on the other. That line is the terminator.",
+      "spoken": "Earth, with the Sun away to the left. Look at the line down the middle: lit on one side, dark on the other. That line is the terminator."
+    },
+    {
+      "lesson": "day-night",
+      "id": "40200cee925281b3",
+      "where": "spin beat 1",
+      "text": "Now the clock runs at one hour every second. Watch the cities ride round — none of them is standing still.",
+      "spoken": "Now the clock runs at one hour every second. Watch the cities ride round, none of them is standing still."
+    },
+    {
+      "lesson": "day-night",
+      "id": "f175010194426b54",
+      "where": "spin beat 2",
+      "text": "Kathmandu is moving towards the dark side. For the people there, the Sun is sinking lower in the west.",
+      "spoken": "Kathmandu is moving towards the dark side. For the people there, the Sun is sinking lower in the west."
+    },
+    {
+      "lesson": "day-night",
+      "id": "879fb915971550f6",
+      "where": "spin beat 3",
+      "text": "And now it’s night in Nepal. Nothing turned off — their patch of ground simply swung round to the far side of the planet from the Sun.",
+      "spoken": "And now it’s night in Nepal. Nothing turned off, their patch of ground simply swung round to the far side of the planet from the Sun."
+    },
+    {
+      "lesson": "day-night",
+      "id": "98f09548db9a1dea",
+      "where": "spin beat 4",
+      "text": "Meanwhile New York is rolling into the sunlight. Somewhere on Earth, someone is always watching a sunrise.",
+      "spoken": "Meanwhile New York is rolling into the sunlight. Somewhere on Earth, someone is always watching a sunrise."
+    },
+    {
+      "lesson": "day-night",
+      "id": "1e7b217d015b12c5",
+      "where": "spin beat 5",
+      "text": "Twenty-four seconds here, twenty-four hours there. One spin: one day.",
+      "spoken": "Twenty-four seconds here, twenty-four hours there. One spin: one day."
+    },
+    {
+      "lesson": "day-night",
+      "id": "6c226d4d4d2e2365",
+      "where": "spin beat 6",
+      "text": "Notice the dividing line never moved relative to the Sun. Only the ground moved past it.",
+      "spoken": "Notice the dividing line never moved relative to the Sun. Only the ground moved past it."
+    },
+    {
+      "lesson": "day-night",
+      "id": "b3f13abb49fca509",
+      "where": "spin jump \"Noon in Kathmandu\"",
+      "text": "Nepal is facing the Sun square on: local noon.",
+      "spoken": "Nepal is facing the Sun square on: local noon."
+    },
+    {
+      "lesson": "day-night",
+      "id": "c1ea76d90a3de1e7",
+      "where": "spin jump \"Noon in New York\"",
+      "text": "Eleven hours later the same thing happens in New York.",
+      "spoken": "Eleven hours later the same thing happens in New York."
+    },
+    {
+      "lesson": "day-night",
+      "id": "b733ad7681d307c1",
+      "where": "spin jump \"Look down the axis\"",
+      "text": "From above the North Pole: Earth turning anticlockwise, which carries you eastwards.",
+      "spoken": "From above the North Pole: Earth turning anticlockwise, which carries you eastwards."
+    },
+    {
+      "lesson": "day-night",
+      "id": "6676aa4cd7af8fd5",
+      "where": "overhead beat 0",
+      "text": "Now we’re holding station 2,600 km directly above Kathmandu, moving along with the ground. It’s the middle of the night down there.",
+      "spoken": "Now we’re holding station 2,600 kilometres directly above Kathmandu, moving along with the ground. It’s the middle of the night down there."
+    },
+    {
+      "lesson": "day-night",
+      "id": "806f954525fb9e6f",
+      "where": "overhead beat 1",
+      "text": "One hour a second. Look towards the horizon on the left — something is coming.",
+      "spoken": "One hour a second. Look towards the horizon on the left, something is coming."
+    },
+    {
+      "lesson": "day-night",
+      "id": "1f6c8f7bd763795f",
+      "where": "overhead beat 2",
+      "text": "There it is: the terminator, arriving. On the ground this is dawn, and it is crossing the country at well over 1,000 km/h.",
+      "spoken": "There it is: the terminator, arriving. On the ground this is dawn, and it is crossing the country at well over 1,000 kilometres per hour."
+    },
+    {
+      "lesson": "day-night",
+      "id": "3cedf9e3a5f8dc35",
+      "where": "overhead beat 3",
+      "text": "Full daylight now, and the Sun climbing. It’s the longest day of the year down there — the June solstice.",
+      "spoken": "Full daylight now, and the Sun climbing. It’s the longest day of the year down there, the June solstice."
+    },
+    {
+      "lesson": "day-night",
+      "id": "8c915d0d68a6bc85",
+      "where": "overhead beat 4",
+      "text": "And the far edge arrives. Sunset. The same line, on the other side of the planet from where we met it this morning.",
+      "spoken": "And the far edge arrives. Sunset. The same line, on the other side of the planet from where we met it this morning."
+    },
+    {
+      "lesson": "day-night",
+      "id": "889fe6278338436d",
+      "where": "overhead beat 5",
+      "text": "One full turn, one sunrise, one sunset. Do that 365 times and you’ve gone round the Sun — which is the next lesson.",
+      "spoken": "One full turn, one sunrise, one sunset. Do that 365 times and you’ve gone round the Sun, which is the next lesson."
+    },
+    {
+      "lesson": "day-night",
+      "id": "3f814bf3266b5880",
+      "where": "overhead jump \"Over the North Pole\"",
+      "text": "In June the North Pole never leaves the sunlight — the Sun just circles round without setting.",
+      "spoken": "In June the North Pole never leaves the sunlight, the Sun just circles round without setting."
+    },
+    {
+      "lesson": "day-night",
+      "id": "7aa35425db27654c",
+      "where": "overhead jump \"Over the South Pole\"",
+      "text": "And on the same date, the South Pole never sees the Sun at all.",
+      "spoken": "And on the same date, the South Pole never sees the Sun at all."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "4b62c1935691d5ce",
+      "where": "shadow beat 0",
+      "text": "This is Earth on 8 April 2024, seen from where the Moon was — about 370,000 km away. It’s mid-afternoon in America. Nothing has happened yet.",
+      "spoken": "This is Earth on 8 April 2024, seen from where the Moon was, about 370,000 kilometres away. It’s mid-afternoon in America. Nothing has happened yet."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "93a8e52375b125fd",
+      "where": "shadow beat 1",
+      "text": "Now the clock runs at ten minutes every second. Watch the Pacific coast of Mexico for a small dark dot.",
+      "spoken": "Now the clock runs at ten minutes every second. Watch the Pacific coast of Mexico for a small dark dot."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "bd63128771ac382a",
+      "where": "shadow beat 2",
+      "text": "There it is. That dot is the umbra: the part of the shadow where the Moon blocks the Sun completely. It is only about 200 km across.",
+      "spoken": "There it is. That dot is the umbra: the part of the shadow where the Moon blocks the Sun completely. It is only about 200 kilometres across."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "aa0db3ce00407c26",
+      "where": "shadow beat 3",
+      "text": "It’s racing north-east at over 2,000 km/h — faster than a jet. Anyone standing under it gets about four minutes of darkness, then it’s gone.",
+      "spoken": "It’s racing north-east at over 2,000 kilometres per hour, faster than a jet. Anyone standing under it gets about four minutes of darkness, then it’s gone."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "d7b8011b8a187871",
+      "where": "shadow beat 4",
+      "text": "Around 18:17 UTC the shadow is closest to the middle of Earth. Everything shaded around the dot is the penumbra — those millions of people see a partial eclipse.",
+      "spoken": "Around 18 17 U T C the shadow is closest to the middle of Earth. Everything shaded around the dot is the penumbra, those millions of people see a partial eclipse."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "5f21cb43b4eb630d",
+      "where": "shadow beat 5",
+      "text": "Now it crosses eastern Canada and heads out over the Atlantic.",
+      "spoken": "Now it crosses eastern Canada and heads out over the Atlantic."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "8189a939eeeedc43",
+      "where": "shadow beat 6",
+      "text": "And it’s gone. Three hours, one thin ribbon of totality drawn across a planet.",
+      "spoken": "And it’s gone. Three hours, one thin ribbon of totality drawn across a planet."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "128f3826fe26c83d",
+      "where": "shadow jump \"Landfall over Mexico\"",
+      "text": "The umbra first touches Earth over the Pacific, near Mazatlán.",
+      "spoken": "The umbra first touches Earth over the Pacific, near Mazatlán."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "f01351eda158aab0",
+      "where": "shadow jump \"Over Texas\"",
+      "text": "The shadow crossing Texas. Dallas had 3 minutes 51 seconds of totality.",
+      "spoken": "The shadow crossing Texas. Dallas had 3 minutes 51 seconds of totality."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "c05d430440a1abd7",
+      "where": "shadow jump \"Zoom right out\"",
+      "text": "From the side: Sun, Moon and Earth in one straight line.",
+      "spoken": "From the side: Sun, Moon and Earth in one straight line."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "ba2d55ce1372f2d5",
+      "where": "totality beat 0",
+      "text": "You’re standing in Dallas, looking up through a narrow, telescope-like view. The Moon has already taken a bite out of the Sun.",
+      "spoken": "You’re standing in Dallas, looking up through a narrow, telescope-like view. The Moon has already taken a bite out of the Sun."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "d7581da000d54698",
+      "where": "totality beat 1",
+      "text": "Ten minutes a second. Watch the Sun shrink to a crescent — and look at how much daylight is left. Still plenty, even with the Sun 70% covered.",
+      "spoken": "Ten minutes a second. Watch the Sun shrink to a crescent, and look at how much daylight is left. Still plenty, even with the Sun 70 percent covered."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "7ebb43083ec5326e",
+      "where": "totality beat 2",
+      "text": "Slowing down to one minute a second. The last sliver of Sun is about to vanish.",
+      "spoken": "Slowing down to one minute a second. The last sliver of Sun is about to vanish."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "f65749472abc1cc2",
+      "where": "totality beat 3",
+      "text": "Totality. The Moon covers the Sun completely, and the corona appears — the Sun’s million-degree outer atmosphere, invisible any other time.",
+      "spoken": "Totality. The Moon covers the Sun completely, and the corona appears, the Sun’s million-degree outer atmosphere, invisible any other time."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "36eb82c1da0a0864",
+      "where": "totality beat 4",
+      "text": "Pull back and look at the sky itself. In the middle of the afternoon it has gone twilight-dark, all the way to the horizon.",
+      "spoken": "Pull back and look at the sky itself. In the middle of the afternoon it has gone twilight-dark, all the way to the horizon."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "11c355b16cc8972a",
+      "where": "totality beat 5",
+      "text": "Three minutes fifty-one seconds in Dallas, and then the first sliver of Sun returns — the diamond ring. Glasses back on.",
+      "spoken": "Three minutes fifty-one seconds in Dallas, and then the first sliver of Sun returns, the diamond ring. Glasses back on."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "2722949794736dff",
+      "where": "totality beat 6",
+      "text": "Another hour and a quarter and it’s over. Somewhere under the shadow’s path, somebody is already planning their next one.",
+      "spoken": "Another hour and a quarter and it’s over. Somewhere under the shadow’s path, somebody is already planning their next one."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "42e778d144563263",
+      "where": "totality beat 7",
+      "text": "Use the Jump to buttons to compare this with a ring of fire.",
+      "spoken": "Use the Jump to buttons to compare this with a ring of fire."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "d3d89e9ee7ba1259",
+      "where": "totality jump \"Mid-totality\"",
+      "text": "The corona, with the Moon’s disc dead centre.",
+      "spoken": "The corona, with the Moon’s disc dead centre."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "e70be9265867bf3b",
+      "where": "totality jump \"Ring of fire · 2 Oct 2024\"",
+      "text": "An annular eclipse over the South Pacific: the Moon is too far away to cover the Sun, so a ring of light survives.",
+      "spoken": "An annular eclipse over the South Pacific: the Moon is too far away to cover the Sun, so a ring of light survives."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "9841e427e85d5b8c",
+      "where": "totality jump \"Partial · 29 Mar 2025\"",
+      "text": "A partial eclipse seen from Northern Ireland: the umbra misses Earth entirely, so this is the most anyone saw.",
+      "spoken": "A partial eclipse seen from Northern Ireland: the umbra misses Earth entirely, so this is the most anyone saw."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "5f3418a46349cc52",
+      "where": "totality jump \"The dark sky\"",
+      "text": "The whole sky at mid-totality.",
+      "spoken": "The whole sky at mid-totality."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "535f3adfd4b6a363",
+      "where": "bloodmoon beat 0",
+      "text": "The Moon, close up, a few hours before the eclipse of 14 March 2025. Fully lit — this is a full moon, which is exactly what a lunar eclipse needs.",
+      "spoken": "The Moon, close up, a few hours before the eclipse of 14 March 2025. Fully lit, this is a full moon, which is exactly what a lunar eclipse needs."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "a86563fbe5d5eb56",
+      "where": "bloodmoon beat 1",
+      "text": "Earth is behind us, between the Moon and the Sun. Its shadow stretches out into space, and the Moon is drifting straight into it.",
+      "spoken": "Earth is behind us, between the Moon and the Sun. Its shadow stretches out into space, and the Moon is drifting straight into it."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "1dd514fef75ed873",
+      "where": "bloodmoon beat 2",
+      "text": "The edge of Earth’s umbra starts creeping across the surface. Unlike a solar eclipse, this takes hours and the whole night side of Earth can watch.",
+      "spoken": "The edge of Earth’s umbra starts creeping across the surface. Unlike a solar eclipse, this takes hours and the whole night side of Earth can watch."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "04d03b4cc9176bda",
+      "where": "bloodmoon beat 3",
+      "text": "Nearly swallowed. Notice the colour arriving — it isn’t going black.",
+      "spoken": "Nearly swallowed. Notice the colour arriving, it isn’t going black."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "d5a14e1c010aa861",
+      "where": "bloodmoon beat 4",
+      "text": "Totality. The Moon glows copper red, lit only by sunlight bent through Earth’s atmosphere — every sunrise and sunset on the planet, focused onto one rock.",
+      "spoken": "Totality. The Moon glows copper red, lit only by sunlight bent through Earth’s atmosphere, every sunrise and sunset on the planet, focused onto one rock."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "1501140370db24cb",
+      "where": "bloodmoon beat 5",
+      "text": "Now turn round and look back from the Moon’s position: Earth is a black disc exactly covering the Sun, ringed with the glow of its own atmosphere.",
+      "spoken": "Now turn round and look back from the Moon’s position: Earth is a black disc exactly covering the Sun, ringed with the glow of its own atmosphere."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "13310da590d47bd9",
+      "where": "bloodmoon beat 6",
+      "text": "Totality lasted 65 minutes. Then the Moon slides back out into full sunlight.",
+      "spoken": "Totality lasted 65 minutes. Then the Moon slides back out into full sunlight."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "ca1d6ed2fb686e13",
+      "where": "bloodmoon jump \"Mid-eclipse\"",
+      "text": "Greatest eclipse: the Moon deepest inside Earth’s umbra.",
+      "spoken": "Greatest eclipse: the Moon deepest inside Earth’s umbra."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "6b77d5802845a242",
+      "where": "bloodmoon jump \"From Earth’s shadow\"",
+      "text": "What you’d see standing on the Moon: Earth eclipsing the Sun.",
+      "spoken": "What you’d see standing on the Moon: Earth eclipsing the Sun."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "72393e0f7d188253",
+      "where": "bloodmoon jump \"Side on\"",
+      "text": "Sun, Earth, Moon in a line — the opposite order from a solar eclipse.",
+      "spoken": "Sun, Earth, Moon in a line, the opposite order from a solar eclipse."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "104e89a601d75678",
+      "where": "bloodmoon jump \"Blood moon of Sept 2025\"",
+      "text": "The eclipse of 7 September 2025 — 82 minutes of totality, seen across Asia, Africa and Europe.",
+      "spoken": "The eclipse of 7 September 2025, 82 minutes of totality, seen across Asia, Africa and Europe."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "303abde3625536c0",
+      "where": "tilt beat 0",
+      "text": "Back to Earth seen from the Moon — but now at the new moon of 11 January 2024. The Moon is between us and the Sun, exactly as it was in April. So where is the shadow?",
+      "spoken": "Back to Earth seen from the Moon, but now at the new moon of 11 January 2024. The Moon is between us and the Sun, exactly as it was in April. So where is the shadow?"
+    },
+    {
+      "lesson": "eclipses",
+      "id": "1028e478e557890b",
+      "where": "tilt beat 1",
+      "text": "Nowhere. The Moon’s orbit is tilted, so this month the shadow sails past, thousands of kilometres clear of the planet.",
+      "spoken": "Nowhere. The Moon’s orbit is tilted, so this month the shadow sails past, thousands of kilometres clear of the planet."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "871b7e05e3e64717",
+      "where": "tilt beat 2",
+      "text": "Next new moon, four weeks later. Still a miss — though not by quite as much.",
+      "spoken": "Next new moon, four weeks later. Still a miss, though not by quite as much."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "9fc4d94da4d9f181",
+      "where": "tilt beat 3",
+      "text": "March. Closer again. The tilted orbit is swinging the Moon down towards the Earth–Sun line.",
+      "spoken": "March. Closer again. The tilted orbit is swinging the Moon down towards the Earth–Sun line."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "3de9b60b7575756c",
+      "where": "tilt beat 4",
+      "text": "8 April. This time the new moon lands right on the line — the Moon is at a node — and the shadow finally lands. That’s the eclipse you watched at the start of the lesson.",
+      "spoken": "8 April. This time the new moon lands right on the line, the Moon is at a node, and the shadow finally lands. That’s the eclipse you watched at the start of the lesson."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "e501ec7983658bbb",
+      "where": "tilt beat 5",
+      "text": "One month later it has sailed straight past the node, and the shadow misses again — this time on the other side.",
+      "spoken": "One month later it has sailed straight past the node, and the shadow misses again, this time on the other side."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "81b086d12d637fe4",
+      "where": "tilt beat 6",
+      "text": "June: missing by even more. The hoop of the Moon’s orbit keeps pointing the same way in space while Earth travels round the Sun, so the line-up only comes back round about every six months.",
+      "spoken": "June: missing by even more. The hoop of the Moon’s orbit keeps pointing the same way in space while Earth travels round the Sun, so the line-up only comes back round about every six months."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "38675ed56eaa13fb",
+      "where": "tilt beat 7",
+      "text": "And there it is — the next eclipse season, six months on. Six new moons for one eclipse.",
+      "spoken": "And there it is, the next eclipse season, six months on. Six new moons for one eclipse."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "3d09846bd5b5cf20",
+      "where": "tilt jump \"Edge on\"",
+      "text": "The same moment from the side: Moon exactly on the line from Earth to the Sun.",
+      "spoken": "The same moment from the side: Moon exactly on the line from Earth to the Sun."
+    },
+    {
+      "lesson": "eclipses",
+      "id": "638dde71fdd52049",
+      "where": "tilt jump \"Edge on, a month earlier\"",
+      "text": "A month earlier, from the side: the Moon rides well off the line.",
+      "spoken": "A month earlier, from the side: the Moon rides well off the line."
+    },
+    {
+      "lesson": "how-far",
+      "id": "318ba82b9b8bdced",
+      "where": "flight beat 0",
+      "text": "This scene hands you the controls. Below the view you’ve got a flight console: destination, ship speed, flight clock, and an Engage button.",
+      "spoken": "This scene hands you the controls. Below the view you’ve got a flight console: destination, ship speed, flight clock, and an Engage button."
+    },
+    {
+      "lesson": "how-far",
+      "id": "01b470bd54fc396c",
+      "where": "flight beat 1",
+      "text": "Start easy. Set the destination to Moon, the ship speed to Speed of light, and the flight clock to Real time.",
+      "spoken": "Start easy. Set the destination to Moon, the ship speed to Speed of light, and the flight clock to Real time."
+    },
+    {
+      "lesson": "how-far",
+      "id": "074a1afb1b205963",
+      "where": "flight beat 2",
+      "text": "Press Engage and time the trip. It takes 1.3 seconds — the only genuinely quick journey in the Solar System.",
+      "spoken": "Press Engage and time the trip. It takes 1.3 seconds, the only genuinely quick journey in the Solar System."
+    },
+    {
+      "lesson": "how-far",
+      "id": "fda212d44c45d472",
+      "where": "flight beat 3",
+      "text": "Now try the Sun at light speed. Even at the universe’s speed limit, that’s 8 minutes 20 seconds. Use the flight clock to speed the waiting up.",
+      "spoken": "Now try the Sun at light speed. Even at the universe’s speed limit, that’s 8 minutes 20 seconds. Use the flight clock to speed the waiting up."
+    },
+    {
+      "lesson": "how-far",
+      "id": "f84be1f0eb26e4e6",
+      "where": "flight beat 4",
+      "text": "Then pick Neptune, and change your ship speed to Voyager 1. Read the trip estimate before you launch. Then take a breath.",
+      "spoken": "Then pick Neptune, and change your ship speed to Voyager 1. Read the trip estimate before you launch. Then take a breath."
+    },
+    {
+      "lesson": "how-far",
+      "id": "7cc1ae0ed7236f3c",
+      "where": "flight jump \"Out at Neptune\"",
+      "text": "Neptune, 4.5 billion km from the Sun. From here the Sun is just the brightest star in the sky.",
+      "spoken": "Neptune, 4.5 billion kilometres from the Sun. From here the Sun is just the brightest star in the sky."
+    },
+    {
+      "lesson": "how-far",
+      "id": "aa14d519b174b15a",
+      "where": "flight jump \"The Sun from Mercury\"",
+      "text": "The Sun seen from Mercury’s distance — three times wider than we ever see it.",
+      "spoken": "The Sun seen from Mercury’s distance, three times wider than we ever see it."
+    },
+    {
+      "lesson": "how-far",
+      "id": "20c653e9c4a5a19d",
+      "where": "zoomout beat 0",
+      "text": "Earth from 14,000 km. Everything that has ever happened to anyone you have ever heard of happened down there.",
+      "spoken": "Earth from 14,000 kilometres. Everything that has ever happened to anyone you have ever heard of happened down there."
+    },
+    {
+      "lesson": "how-far",
+      "id": "5b13c65e22b47a61",
+      "where": "zoomout beat 1",
+      "text": "Back out to 900,000 km and the Moon comes into frame. That gap is 384,400 km — you could fit every other planet in the Solar System into it, side by side, with room to spare.",
+      "spoken": "Back out to 900,000 kilometres and the Moon comes into frame. That gap is 384,400 kilometres, you could fit every other planet in the Solar System into it, side by side, with room to spare."
+    },
+    {
+      "lesson": "how-far",
+      "id": "e906e175538b4ee8",
+      "where": "zoomout beat 2",
+      "text": "Now from above the Sun, out to Mars. Earth is already just a dot on a ring. The Sun is 8 light-minutes away from it.",
+      "spoken": "Now from above the Sun, out to Mars. Earth is already just a dot on a ring. The Sun is 8 light-minutes away from it."
+    },
+    {
+      "lesson": "how-far",
+      "id": "65b85aa4e02217ac",
+      "where": "zoomout beat 3",
+      "text": "Out past Jupiter and Saturn. Those four inner planets are now packed into the small bright area in the middle.",
+      "spoken": "Out past Jupiter and Saturn. Those four inner planets are now packed into the small bright area in the middle."
+    },
+    {
+      "lesson": "how-far",
+      "id": "bbfc6545ce6d670c",
+      "where": "zoomout beat 4",
+      "text": "And here is all of it: eight planets, 4.5 billion kilometres to Neptune, four hours at the speed of light.",
+      "spoken": "And here is all of it: eight planets, 4.5 billion kilometres to Neptune, four hours at the speed of light."
+    },
+    {
+      "lesson": "how-far",
+      "id": "5c1ffe1fc8261eb7",
+      "where": "zoomout beat 5",
+      "text": "Keep going and the planets vanish entirely. The Sun becomes one star among many — and the nearest of those is 7,000 times further away than Neptune.",
+      "spoken": "Keep going and the planets vanish entirely. The Sun becomes one star among many, and the nearest of those is 7,000 times further away than Neptune."
+    },
+    {
+      "lesson": "how-far",
+      "id": "fbc85de5e4422fa3",
+      "where": "zoomout beat 6",
+      "text": "That’s the Solar System: a few specks of rock and gas, and an enormous amount of nothing.",
+      "spoken": "That’s the Solar System: a few specks of rock and gas, and an enormous amount of nothing."
+    },
+    {
+      "lesson": "how-far",
+      "id": "3212806a64fffb06",
+      "where": "zoomout jump \"Out into the stars\"",
+      "text": "From 2,000 AU the Sun is just a bright star, and the Milky Way is the real view.",
+      "spoken": "From 2,000 astronomical units the Sun is just a bright star, and the Milky Way is the real view."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "5f4a3bd56a870574",
+      "where": "month beat 0",
+      "text": "The Moon at new moon, seen from near Earth. Almost nothing to see — its lit half is pointing away from us, at the Sun.",
+      "spoken": "The Moon at new moon, seen from near Earth. Almost nothing to see, its lit half is pointing away from us, at the Sun."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "549c20ccff12dc6a",
+      "where": "month beat 1",
+      "text": "Now the clock runs at one day every second. Watch the sliver appear and grow.",
+      "spoken": "Now the clock runs at one day every second. Watch the sliver appear and grow."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "67eea072309ca04b",
+      "where": "month beat 2",
+      "text": "About a week in: first quarter. Looks like a half-moon, and it is — we’re seeing the lit half exactly side-on.",
+      "spoken": "About a week in: first quarter. Looks like a half-moon, and it is, we’re seeing the lit half exactly side-on."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "1f70653f7dbac733",
+      "where": "month beat 3",
+      "text": "Waxing gibbous now — more than half, still growing. Each night it rises a little later and looks a little fuller.",
+      "spoken": "Waxing gibbous now, more than half, still growing. Each night it rises a little later and looks a little fuller."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "e062cbb2b130109e",
+      "where": "month beat 4",
+      "text": "Full moon. The Moon is opposite the Sun, so the whole lit face is turned our way. Nothing about the Moon changed — only our viewing angle.",
+      "spoken": "Full moon. The Moon is opposite the Sun, so the whole lit face is turned our way. Nothing about the Moon changed, only our viewing angle."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "a79f12fdd0f1cf42",
+      "where": "month beat 5",
+      "text": "And now it shrinks back: waning gibbous, then last quarter, then a thinning crescent on the other side.",
+      "spoken": "And now it shrinks back: waning gibbous, then last quarter, then a thinning crescent on the other side."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "8725579f2e529f5d",
+      "where": "month beat 6",
+      "text": "Look carefully at the dark part during the crescents — it isn’t quite black. That faint glow is earthshine: sunlight that bounced off Earth and lit the Moon’s night side.",
+      "spoken": "Look carefully at the dark part during the crescents, it isn’t quite black. That faint glow is earthshine: sunlight that bounced off Earth and lit the Moon’s night side."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "6bb0738317ad6228",
+      "where": "month beat 7",
+      "text": "And back to new moon. 29.5 days, one lap, one full set of phases. That’s a month.",
+      "spoken": "And back to new moon. 29.5 days, one lap, one full set of phases. That’s a month."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "492f03ca7f3d96f7",
+      "where": "month jump \"Far side\"",
+      "text": "Round the back: the face no one on Earth has ever seen from here. Covered in craters, with almost none of the dark “seas”.",
+      "spoken": "Round the back: the face no one on Earth has ever seen from here. Covered in craters, with almost none of the dark “seas”."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "1b2b60e78670df69",
+      "where": "fromabove beat 0",
+      "text": "Now from above the orbit. Earth in the middle, the Moon on its ring, and the Sun away in the direction of the arrow.",
+      "spoken": "Now from above the orbit. Earth in the middle, the Moon on its ring, and the Sun away in the direction of the arrow."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "9aa8c0ad30e8dc23",
+      "where": "fromabove beat 1",
+      "text": "The Moon is on the same side as the Sun. Its lit half points away from Earth — so from down there, we see a new moon.",
+      "spoken": "The Moon is on the same side as the Sun. Its lit half points away from Earth, so from down there, we see a new moon."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "04d93e1bdabb496d",
+      "where": "fromabove beat 2",
+      "text": "One day a second. Watch the Moon swing round — and notice the lit side of it never changes. It’s always the side facing the Sun.",
+      "spoken": "One day a second. Watch the Moon swing round, and notice the lit side of it never changes. It’s always the side facing the Sun."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "c8b1aa23902b81a1",
+      "where": "fromabove beat 3",
+      "text": "A quarter of the way round. From Earth we’re now looking at the lit half edge-on: that’s the first quarter.",
+      "spoken": "A quarter of the way round. From Earth we’re now looking at the lit half edge-on: that’s the first quarter."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "97d591ddb05b2719",
+      "where": "fromabove beat 4",
+      "text": "Halfway. The Moon is now on the opposite side of Earth from the Sun, so its entire lit face is aimed at us: full moon.",
+      "spoken": "Halfway. The Moon is now on the opposite side of Earth from the Sun, so its entire lit face is aimed at us: full moon."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "f9d6fedc62422fc9",
+      "where": "fromabove beat 5",
+      "text": "And round it comes again. One ring, one month, every phase in order — just from the changing angle.",
+      "spoken": "And round it comes again. One ring, one month, every phase in order, just from the changing angle."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "6e089dbf3ba7d471",
+      "where": "fromabove beat 6",
+      "text": "Geometry. That’s all a phase has ever been.",
+      "spoken": "Geometry. That’s all a phase has ever been."
+    },
+    {
+      "lesson": "moon-phases",
+      "id": "5e0e00c41804f80a",
+      "where": "fromabove jump \"Far side\"",
+      "text": "The far side of the Moon — tidally locked away from us for billions of years.",
+      "spoken": "The far side of the Moon, tidally locked away from us for billions of years."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "215b2ae27c082639",
+      "where": "inner beat 0",
+      "text": "Looking straight down on the Solar System. The Sun in the middle, and the four rocky planets on their rings: Mercury, Venus, Earth, Mars.",
+      "spoken": "Looking straight down on the Solar System. The Sun in the middle, and the four rocky planets on their rings: Mercury, Venus, Earth, Mars."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "a58be43f440f6d0a",
+      "where": "inner beat 1",
+      "text": "One month every second. Keep your eye on Mercury, closest in — it is already pulling away.",
+      "spoken": "One month every second. Keep your eye on Mercury, closest in, it is already pulling away."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "cac88082b6129f36",
+      "where": "inner beat 2",
+      "text": "That’s roughly a year gone. Earth has done one full lap. Mercury has done more than four.",
+      "spoken": "That’s roughly a year gone. Earth has done one full lap. Mercury has done more than four."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "7cafd371b86e764f",
+      "where": "inner beat 3",
+      "text": "Mars is still labouring round its first circuit. It has nearly twice as far to go as Earth, and it’s travelling more slowly: 24 km/s against our 30.",
+      "spoken": "Mars is still labouring round its first circuit. It has nearly twice as far to go as Earth, and it’s travelling more slowly: 24 kilometres per second against our 30."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "1c0c7a8e655086f1",
+      "where": "inner beat 4",
+      "text": "Watch Earth catch Mars up and sweep past on the inside. That happens about every 26 months — and it’s when Mars looks biggest and brightest in our sky.",
+      "spoken": "Watch Earth catch Mars up and sweep past on the inside. That happens about every 26 months, and it’s when Mars looks biggest and brightest in our sky."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "7dbe12ba42855b96",
+      "where": "inner beat 5",
+      "text": "Closer in means faster and shorter. Both effects pull the same way, which is why the years stretch so dramatically as you go out.",
+      "spoken": "Closer in means faster and shorter. Both effects pull the same way, which is why the years stretch so dramatically as you go out."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "add065d0a619349b",
+      "where": "inner jump \"Mars at its closest · 2003\"",
+      "text": "August 2003: Earth sweeping past Mars on the inside, closer than at any time in 60,000 years.",
+      "spoken": "August 2003: Earth sweeping past Mars on the inside, closer than at any time in 60,000 years."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "b8b22402ac74552a",
+      "where": "inner jump \"Watch from Earth\"",
+      "text": "The same motion seen from Earth, with Mars kept in frame.",
+      "spoken": "The same motion seen from Earth, with Mars kept in frame."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "d5ff103eb0d8391b",
+      "where": "inner jump \"Seven-planet parade\"",
+      "text": "February 2025: every planet from Mercury to Neptune on the same side of the sky at once.",
+      "spoken": "February 2025: every planet from Mercury to Neptune on the same side of the sky at once."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "dcc01e6a4bb5d5ff",
+      "where": "outer beat 0",
+      "text": "Now zoomed right out. The four rocky planets are squashed into that bright knot in the middle — the giants need all this room.",
+      "spoken": "Now zoomed right out. The four rocky planets are squashed into that bright knot in the middle, the giants need all this room."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "dddcd8e46c2f27b6",
+      "where": "outer beat 1",
+      "text": "One year every second now. Earth is going round once a second — far too fast to follow. Watch Jupiter instead.",
+      "spoken": "One year every second now. Earth is going round once a second, far too fast to follow. Watch Jupiter instead."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "e5aa5bed693d0577",
+      "where": "outer beat 2",
+      "text": "Twelve seconds, one Jupiter year. Anyone born on Jupiter would have their first birthday aged nearly twelve.",
+      "spoken": "Twelve seconds, one Jupiter year. Anyone born on Jupiter would have their first birthday aged nearly twelve."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "d0a9cf6e5750dd2e",
+      "where": "outer beat 3",
+      "text": "Saturn is less than twice as far out as Jupiter, but its year is nearly three times longer. That is Kepler’s law doing its work.",
+      "spoken": "Saturn is less than twice as far out as Jupiter, but its year is nearly three times longer. That is Kepler’s law doing its work."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "6633336d10a80666",
+      "where": "outer beat 4",
+      "text": "And out at the edge, Uranus and Neptune have barely shifted. Neptune has completed one single orbit since it was discovered in 1846.",
+      "spoken": "And out at the edge, Uranus and Neptune have barely shifted. Neptune has completed one single orbit since it was discovered in 1846."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "093c99304b293471",
+      "where": "outer beat 5",
+      "text": "Distance cubed equals year squared. One line, and it governs everything orbiting the Sun.",
+      "spoken": "Distance cubed equals year squared. One line, and it governs everything orbiting the Sun."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "326bcff259cf5774",
+      "where": "outer jump \"The Great Conjunction · 2020\"",
+      "text": "December 2020: Jupiter catching Saturn. From Earth they appeared 0.1° apart — the closest since 1623.",
+      "spoken": "December 2020: Jupiter catching Saturn. From Earth they appeared 0.1 degrees apart, the closest since 1623."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "defe5701bacc3653",
+      "where": "outer jump \"Seen from Earth\"",
+      "text": "The same instant from Earth: two worlds 730 million km apart, apparently side by side.",
+      "spoken": "The same instant from Earth: two worlds 730 million kilometres apart, apparently side by side."
+    },
+    {
+      "lesson": "planet-race",
+      "id": "af09e0401cdc7bd4",
+      "where": "outer jump \"Fly out to Neptune\"",
+      "text": "Neptune: 4.5 billion km out, where sunlight is 900 times fainter than here.",
+      "spoken": "Neptune: 4.5 billion kilometres out, where sunlight is 900 times fainter than here."
+    },
+    {
+      "lesson": "seasons",
+      "id": "568d64938f5937ed",
+      "where": "yearrun beat 0",
+      "text": "The June solstice. The blue dashed line is Earth’s axis, and the arrow points at the Sun. Look how the north end of the axis is leaning towards it.",
+      "spoken": "The June solstice. The blue dashed line is Earth’s axis, and the arrow points at the Sun. Look how the north end of the axis is leaning towards it."
+    },
+    {
+      "lesson": "seasons",
+      "id": "954de2a0b3c3997b",
+      "where": "yearrun beat 1",
+      "text": "That’s why the whole Arctic is bathed in light, and why northern countries get their longest day right now.",
+      "spoken": "That’s why the whole Arctic is bathed in light, and why northern countries get their longest day right now."
+    },
+    {
+      "lesson": "seasons",
+      "id": "7d008ae3cd6213a1",
+      "where": "yearrun beat 2",
+      "text": "Three months on, the September equinox. The tilt hasn’t changed — but now it’s sideways-on to the Sun, so neither pole is favoured.",
+      "spoken": "Three months on, the September equinox. The tilt hasn’t changed, but now it’s sideways-on to the Sun, so neither pole is favoured."
+    },
+    {
+      "lesson": "seasons",
+      "id": "471e9687cd5a6fc7",
+      "where": "yearrun beat 3",
+      "text": "Notice the line between day and night runs straight through both poles. Twelve hours of each, almost everywhere on Earth.",
+      "spoken": "Notice the line between day and night runs straight through both poles. Twelve hours of each, almost everywhere on Earth."
+    },
+    {
+      "lesson": "seasons",
+      "id": "03297f845687bbe9",
+      "where": "yearrun beat 4",
+      "text": "The December solstice. Same tilt, same direction in space — but Earth has gone round to the other side of the Sun, so now the north leans away.",
+      "spoken": "The December solstice. Same tilt, same direction in space, but Earth has gone round to the other side of the Sun, so now the north leans away."
+    },
+    {
+      "lesson": "seasons",
+      "id": "6d939eab3895ea19",
+      "where": "yearrun beat 5",
+      "text": "The Arctic is in darkness and Antarctica is in constant daylight. Opposite seasons, at the same instant, on one planet.",
+      "spoken": "The Arctic is in darkness and Antarctica is in constant daylight. Opposite seasons, at the same instant, on one planet."
+    },
+    {
+      "lesson": "seasons",
+      "id": "7da29ec386ac5f0c",
+      "where": "yearrun beat 6",
+      "text": "The March equinox, and we’re balanced again on the way back round.",
+      "spoken": "The March equinox, and we’re balanced again on the way back round."
+    },
+    {
+      "lesson": "seasons",
+      "id": "ff5779ba09177c1e",
+      "where": "yearrun beat 7",
+      "text": "And back to June. One lap of the Sun, one full set of seasons — and the axis pointed the same way the entire time.",
+      "spoken": "And back to June. One lap of the Sun, one full set of seasons, and the axis pointed the same way the entire time."
+    },
+    {
+      "lesson": "seasons",
+      "id": "ab57f3284f0cc552",
+      "where": "yearrun jump \"Look down from the north\"",
+      "text": "From above: in December, the North Pole is in darkness no matter how Earth turns.",
+      "spoken": "From above: in December, the North Pole is in darkness no matter how Earth turns."
+    },
+    {
+      "lesson": "seasons",
+      "id": "3f8d1ba3f5ff3721",
+      "where": "yearrun jump \"The whole orbit\"",
+      "text": "Zoomed right out: Earth’s near-circular lap of the Sun, one month every second.",
+      "spoken": "Zoomed right out: Earth’s near-circular lap of the Sun, one month every second."
+    },
+    {
+      "lesson": "seasons",
+      "id": "dedf6d8e9f38cbee",
+      "where": "midnightsun beat 0",
+      "text": "We’re above Svalbard, at 78° north — well inside the Arctic Circle — at midnight on the June solstice. And it’s broad daylight.",
+      "spoken": "We’re above Svalbard, at 78 degrees north, well inside the Arctic Circle, at midnight on the June solstice. And it’s broad daylight."
+    },
+    {
+      "lesson": "seasons",
+      "id": "3037ff34b8498d48",
+      "where": "midnightsun beat 1",
+      "text": "An hour a second. Watch the ground turn beneath us — and watch for a sunset that never comes.",
+      "spoken": "An hour a second. Watch the ground turn beneath us, and watch for a sunset that never comes."
+    },
+    {
+      "lesson": "seasons",
+      "id": "863002268a9478d9",
+      "where": "midnightsun beat 2",
+      "text": "Six hours in. Still light. The Sun is just sliding round the sky, low in the north, instead of dipping below the horizon.",
+      "spoken": "Six hours in. Still light. The Sun is just sliding round the sky, low in the north, instead of dipping below the horizon."
+    },
+    {
+      "lesson": "seasons",
+      "id": "4cc5045665c323c9",
+      "where": "midnightsun beat 3",
+      "text": "A whole rotation, and this spot has never once entered the dark half. That’s the midnight Sun.",
+      "spoken": "A whole rotation, and this spot has never once entered the dark half. That’s the midnight Sun."
+    },
+    {
+      "lesson": "seasons",
+      "id": "8c416451c8c7d9b0",
+      "where": "midnightsun beat 4",
+      "text": "Now jump to the December solstice, same place. Earth is on the other side of the Sun, the north leans away — and now the Sun never rises.",
+      "spoken": "Now jump to the December solstice, same place. Earth is on the other side of the Sun, the north leans away, and now the Sun never rises."
+    },
+    {
+      "lesson": "seasons",
+      "id": "345ec4568de369c0",
+      "where": "midnightsun beat 5",
+      "text": "Months of daylight, then months of darkness. All from a 23.4° lean.",
+      "spoken": "Months of daylight, then months of darkness. All from a 23.4 degrees lean."
+    },
+    {
+      "lesson": "seasons",
+      "id": "5e3e71e43e8b2a93",
+      "where": "midnightsun jump \"Antarctica in December\"",
+      "text": "The opposite end of the planet, on the same date: endless daylight over Antarctica.",
+      "spoken": "The opposite end of the planet, on the same date: endless daylight over Antarctica."
+    },
+    {
+      "lesson": "seasons",
+      "id": "033907b6bf7c9f7b",
+      "where": "midnightsun jump \"The equator\"",
+      "text": "On the equator the day is about twelve hours long on every date of the year — no real seasons at all.",
+      "spoken": "On the equator the day is about twelve hours long on every date of the year, no real seasons at all."
+    }
+  ]
+}

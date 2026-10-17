@@ -17,6 +17,7 @@
 //   }
 import { TIME_RATES } from '../data.js';
 import { progress } from './progress.js';
+import { narrationUrl, spoken } from './narration.js';
 
 const RATE = Object.fromEntries(TIME_RATES.map((r) => [r.id, r.rate]));
 const RATE_LABEL = {
@@ -30,7 +31,7 @@ const MAX_LIVE = lowMemory ? 2 : 3; // live 3D views at once; the rest wait as c
 const live = new Set();
 const players = new Map(); // iframe window -> player
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-const strip = (html) => html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+const NARRATION = new URL('../../audio/narration/', import.meta.url).href; // see tools/narrate.py
 const ICON = {
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 5.5h3v13h-3zM13.5 5.5h3v13h-3z"/></svg>',
@@ -47,26 +48,84 @@ const prefs = {
   get(k, d) { try { const v = localStorage.getItem(`voyagerAcademy.${k}`); return v === null ? d : v === '1'; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(`voyagerAcademy.${k}`, v ? '1' : '0'); } catch { /* private mode */ } },
 };
+// Narration is recorded ahead of time with a neural voice (tools/narrate.py) and streamed as small MP3s,
+// which sounds far better than anything the browser can synthesise. The browser's own voice is only the
+// fallback, for a caption that hasn't been recorded yet or a recording that won't load.
 const voice = {
-  on: prefs.get('narrate', false) && 'speechSynthesis' in window,
+  on: prefs.get('narrate', false),
+  token: 0,       // bumped whenever a new line starts or the voice is stopped, so a late "ended" can't act on a stale line
+  current: null,  // { html, audio, paused }
+  cache: new Map(),
+
+  clip(lesson, html) {
+    const url = narrationUrl(NARRATION, lesson, html);
+    let a = this.cache.get(url);
+    if (!a) {
+      a = new Audio();
+      a.preload = 'auto';
+      a.src = url;
+      this.cache.set(url, a);
+      if (this.cache.size > 8) this.cache.delete(this.cache.keys().next().value); // keep memory small
+    }
+    return a;
+  },
+  preload(lesson, html) { if (html) this.clip(lesson, html); },
+
+  say(lesson, html, done) {
+    this.stop();
+    const me = this.token;
+    const a = this.clip(lesson, html);
+    let finished = false, fellBack = false, timer = 0;
+    const end = () => { if (finished || me !== this.token) return; finished = true; clearTimeout(timer); this.current = null; done?.(); };
+    // a missing file fails twice over (the load error, and the rejected play()), so only fall back once
+    const robot = () => { clearTimeout(timer); if (fellBack || finished || me !== this.token) return; fellBack = true; this.robot(html, end); };
+    this.current = { lesson, html, audio: a, paused: false };
+    try { a.currentTime = 0; } catch { /* not loaded yet: it starts at the beginning anyway */ }
+    a.onended = end;
+    a.onerror = robot;
+    // a recording that never starts (missing, or a stalled connection) shouldn't leave the lesson waiting on it
+    timer = setTimeout(() => { if (a.readyState < 2 || a.currentTime === 0) robot(); }, 6000);
+    a.play().catch((err) => { if (err?.name === 'NotAllowedError') end(); else robot(); });
+  },
+
+  // Pick up a line that was paused part-way, if that's the one asked for.
+  resume(lesson, html) {
+    const c = this.current;
+    if (!c || !c.paused || c.lesson !== lesson || c.html !== html) return false;
+    c.paused = false;
+    c.audio.play().catch(() => {});
+    return true;
+  },
+  pause() {
+    const c = this.current;
+    if (c && !c.paused && !c.audio.ended) { c.paused = true; c.audio.pause(); }
+    else if ('speechSynthesis' in window) speechSynthesis.cancel();
+  },
+  stop() {
+    this.token++;
+    const c = this.current;
+    this.current = null;
+    if (c) { c.audio.onended = c.audio.onerror = null; c.audio.pause(); }
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+  },
+
+  // The browser's own voice, as the fallback.
   pick() {
     const vs = speechSynthesis.getVoices().filter((v) => /^en[-_]/i.test(v.lang));
     const like = ['Samantha', 'Google US English', 'Microsoft Aria Online', 'Microsoft Jenny Online', 'Karen', 'Daniel', 'Google UK English Female'];
     return like.map((n) => vs.find((v) => v.name.startsWith(n))).find(Boolean) || vs.find((v) => v.localService) || vs[0];
   },
-  say(text, done) {
-    if (!('speechSynthesis' in window)) { done?.(); return; }
+  robot(html, end) {
+    const text = spoken(html);
+    if (!('speechSynthesis' in window)) { end(); return; }
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.voice = this.pick() || null;
     u.rate = 0.98; u.pitch = 1.04;
-    let finished = false;
-    const end = () => { if (!finished) { finished = true; done?.(); } };
     u.onend = end; u.onerror = end;
     setTimeout(end, 2500 + text.length * 90); // some browsers never send onend
     speechSynthesis.speak(u);
   },
-  stop() { if ('speechSynthesis' in window) speechSynthesis.cancel(); },
 };
 if ('speechSynthesis' in window) speechSynthesis.getVoices(); // starts the (async) voice list loading
 
@@ -145,7 +204,7 @@ export class ScenePlayer {
         <span class="sp-time">0:00 / ${fmt(this.dur)}</span>
         <span class="sp-rate" title="How fast time runs in the scene"></span>
         <button class="sp-btn sp-guide" type="button" hidden title="Put the camera back on the lesson's view">${ICON.guide}<span>Guided view</span></button>
-        <button class="sp-btn sp-voice" type="button" aria-pressed="${voice.on}" title="Read the captions aloud">${ICON.voice}</button>
+        <button class="sp-btn sp-voice" type="button" aria-pressed="${voice.on}" title="Listen: read the captions aloud">${ICON.voice}<span>Listen</span></button>
         <button class="sp-btn sp-cc" type="button" aria-pressed="true" title="Captions">${ICON.cc}</button>
         <button class="sp-btn sp-full" type="button" aria-label="Full screen" title="Full screen">${ICON.full}</button>
       </div>
@@ -159,7 +218,6 @@ export class ScenePlayer {
       play: q('.sp-play'), track: q('.sp-track'), fill: q('.sp-fill'), thumb: q('.sp-thumb'), time: q('.sp-time'), rate: q('.sp-rate'),
       guide: q('.sp-guide'), voice: q('.sp-voice'), cc: q('.sp-cc'), full: q('.sp-full'),
     };
-    if (!('speechSynthesis' in window)) this.el.voice.hidden = true;
     q('.sp-load').addEventListener('click', () => this.load(true));
     this.el.big.addEventListener('click', () => (this.t >= this.dur - 0.05 ? this.replay() : this.play()));
     this.el.play.addEventListener('click', () => (this.playing ? this.pause() : this.t >= this.dur - 0.05 ? this.replay() : this.play()));
@@ -169,7 +227,7 @@ export class ScenePlayer {
       prefs.set('narrate', voice.on);
       for (const p of players.values()) p.el.voice.setAttribute('aria-pressed', String(voice.on));
       if (voice.on && this.playing && this.lastCaption) this.speak(this.lastCaption);
-      else voice.stop();
+      else this.silence();
     });
     this.el.cc.addEventListener('click', () => {
       const on = this.el.cc.getAttribute('aria-pressed') !== 'true';
@@ -320,7 +378,7 @@ export class ScenePlayer {
     this.note(null);
     for (const p of players.values()) if (p !== this && p.playing) p.pause();
     this.apply(this.stateAt(this.t), { time: true, view: !this.camFree, all: true });
-    if (voice.on && this.lastCaption) this.speak(this.lastCaption);
+    if (voice.on && this.lastCaption && !voice.resume(this.lesson, this.lastCaption)) this.speak(this.lastCaption);
     this.last = performance.now();
     cancelAnimationFrame(this.raf);
     const loop = (now) => {
@@ -337,7 +395,7 @@ export class ScenePlayer {
     this.playing = false;
     this.holding = false;
     cancelAnimationFrame(this.raf);
-    voice.stop();
+    voice.pause();
     if (!this.exploring && !quiet) this.send({ type: 'time', ms: this.stateAt(this.t).sim, rate: 'pause' });
     this.render();
   }
@@ -436,7 +494,7 @@ export class ScenePlayer {
     if (this.playing) {
       this.playing = false;
       cancelAnimationFrame(this.raf);
-      voice.stop();
+      this.silence();
     }
     this.exploring = true;
     this.note('You’re exploring. Press <b>play</b> to pick the lesson up where it left off.');
@@ -471,10 +529,20 @@ export class ScenePlayer {
     if (this.playing && voice.on && html) this.speak(html);
   }
 
+  // Stop talking for good (not just paused), and forget that anything was being said.
+  silence() {
+    this.utter = (this.utter || 0) + 1;
+    this.speaking = false;
+    voice.stop();
+  }
+
   speak(html) {
     this.speaking = true;
     const me = (this.utter = (this.utter || 0) + 1);
-    voice.say(strip(html), () => {
+    // the next line is fetched while this one plays, so there's no gap between them
+    const next = this.beats.find((b) => b.t > this.t && b.say);
+    if (next) voice.preload(this.lesson, next.say);
+    voice.say(this.lesson, html, () => {
       if (me !== this.utter) return;
       this.speaking = false;
       if (this.holding) {
