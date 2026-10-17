@@ -26,8 +26,10 @@ function readPref() { try { return localStorage.getItem(PREF) !== '0'; } catch {
 function savePref(on) { try { localStorage.setItem(PREF, on ? '1' : '0'); } catch { /* private mode */ } }
 
 export class Ambience {
-  constructor() {
-    this.enabled = readPref();
+  // muted: start silent and leave the saved preference alone (the app embedded in a lesson page)
+  constructor({ muted = false } = {}) {
+    this.persist = !muted;
+    this.enabled = !muted && readPref();
     this.ctx = null;
     this.mood = null;
     this.lastUpdate = 0;
@@ -71,7 +73,7 @@ export class Ambience {
 
   setEnabled(on) {
     this.enabled = on;
-    savePref(on);
+    if (this.persist) savePref(on);
     if (on) { this.unlock(); return; }
     if (!this.ctx) return;
     this.fade(0, 0.6);

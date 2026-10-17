@@ -165,6 +165,7 @@ export class SolarSystem {
     if (style === 'miranda') defines.MIRANDA = '';
     if (style === 'earth') defines.EARTH = '';
     if (d.hexagon) defines.HEXAGON = '';
+    if (d.id === 'moon') defines.BLOOD = ''; // copper glow during lunar eclipses
     const big = d.bigCrater;
     const uniforms = {
       uSunV: this.shared.uSunV, uSunCol: this.shared.uSunCol, uTime: this.shared.uTime, uSunR: this.shared.uSunR,
@@ -279,6 +280,7 @@ export class SolarSystem {
       uniforms: {
         uCenterV: { value: new THREE.Vector3() }, uSizeWorld: { value: b.radius * 2.6 }, uMinPx: { value: 160 },
         uViewport: { value: new THREE.Vector2(1, 1) }, uFovScale: { value: 1 }, uIntensity: { value: 1 }, uCorona: { value: 0 }, uTime: this.shared.uTime,
+        uOccPx: { value: new THREE.Vector3() },
       },
     }));
     this.glare.frustumCulled = false;
@@ -496,6 +498,7 @@ export class SolarSystem {
       b.viewPos.copy(b.rel).applyMatrix4(view);
     }
     this.shared.uSunV.value.copy(sun.viewPos);
+    const camSunVis = this.sunVisibility(camPos); // also finds this.eclipser, for the glare below
 
     const fovScale = 2 * Math.tan((camera.fov * DEG) / 2);
     const pxPerRad = viewport.y / fovScale;
@@ -531,6 +534,8 @@ export class SolarSystem {
         au.uSunL.value.copy(sun.rel).applyMatrix4(inv).normalize();
         const inside = au.uCamL.value.length() < 1.0;
         au.uInside.value = inside ? 1 : 0;
+        // inside the air, the sky only glows while the Sun shines: in the Moon's shadow day turns to night
+        au.uSunVis.value = inside ? Math.max(camSunVis, 0.012) : 1;
         b.atmo.material.side = inside ? THREE.BackSide : THREE.FrontSide;
       }
       // projected size for labels and markers
@@ -574,9 +579,12 @@ export class SolarSystem {
       gu.uCenterV.value.copy(sun.viewPos);
       gu.uViewport.value.set(viewport.x, viewport.y);
       gu.uFovScale.value = fovScale;
-      gu.uIntensity.value = this.sunVisibility(camPos) * this.glareFade;
+      gu.uIntensity.value = camSunVis * this.glareFade;
       // during a total (or nearly total) eclipse the corona shows around the hidden Sun
       gu.uCorona.value = this.eclipser ? THREE.MathUtils.smoothstep(1 - gu.uIntensity.value, 0.85, 0.995) * this.glareFade : 0;
+      const e = this.eclipser?.screen, s = sun.screen;
+      if (e && !e.behind && !s.behind && e.r > 1) gu.uOccPx.value.set(e.x - s.x, s.y - e.y, e.r);
+      else gu.uOccPx.value.set(0, 0, 0);
       this.glare.visible = sun.viewPos.z < 0 && (gu.uIntensity.value > 0.001 || gu.uCorona.value > 0.001);
     }
 

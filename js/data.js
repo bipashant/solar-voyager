@@ -28,6 +28,7 @@ export const TIME_RATES = [
   { id: 'pause', label: 'Paused', rate: 0 },
   { id: 'real', label: 'Real time', rate: 1 },
   { id: 'min', label: '1 min / s', rate: 60 },
+  { id: 'min10', label: '10 min / s', rate: 600 },
   { id: 'hour', label: '1 hour / s', rate: 3600 },
   { id: 'day', label: '1 day / s', rate: 86400 },
   { id: 'week', label: '1 week / s', rate: 604800 },

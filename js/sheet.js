@@ -6,7 +6,7 @@
 // the header, flick, or tap the header to switch. The existing controls (selects, details, clock) are
 // moved into it rather than duplicated, and moved back when the screen gets wide again.
 import { fmtDuration, fmtCompact } from './format.js';
-import { haptic } from './platform.js';
+import { haptic, embedded } from './platform.js';
 
 const $ = (id) => document.getElementById(id);
 const DETENTS = ['peek', 'half', 'full'];
@@ -25,7 +25,7 @@ export class Sheet {
     this.bindDrag();
     this.bindContent();
     const mq = matchMedia('(max-width: 720px), (max-height: 500px) and (pointer: coarse)');
-    const sync = () => (mq.matches ? this.mount() : this.unmount());
+    const sync = () => (mq.matches && !embedded ? this.mount() : this.unmount()); // a lesson figure has no sheet
     mq.addEventListener?.('change', sync);
     sync();
     // Re-measure whenever anything that sets the stops changes size: the window, the safe areas iOS reports

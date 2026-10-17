@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { BODIES, SPEEDS, TRAVEL_MODES, TIME_RATES } from './data.js';
 import { DSO_GROUPS } from './deepsky-data.js';
 import { fmtDistance, fmtAU, fmtDuration, fmtLightTime, fmtSpeed, fmtFactor, fmtCompact, fmtSci, fmtLength, fmtTiny, fmtArc } from './format.js';
-import { haptic, isCompact } from './platform.js';
+import { haptic, isCompact, embedConfig } from './platform.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -22,6 +22,11 @@ export class UI {
     // Everything else is one switch away under View > Panels.
     const wide = !isCompact();
     this.toggles = { orbits: true, labels: true, deepsky: true, dso: true, constellations: false, starnames: false, curvature: false, cockpit: true, info: false, console: wide, clock: wide, zoom: true, sound: app.audio?.enabled ?? true };
+    // Embedded in a lesson: just the panels it asked for, no cockpit frame, no music, no galaxies to build.
+    if (embedConfig) {
+      const has = (k) => embedConfig.ui.includes(k);
+      Object.assign(this.toggles, { info: has('info'), console: has('flight'), clock: has('clock'), zoom: has('zoom'), cockpit: false, dso: false, sound: false });
+    }
     this.labelEls = new Map();
     this.featureEls = [];
     this.skyEls = { const: [], names: [] };
@@ -239,7 +244,7 @@ export class UI {
         if (sky) t.removeAttribute('title'); else t.title = 'Turn on Deep sky to see these';
       }
     }
-    const count = Object.entries(this.toggles).filter(([k, v]) => v && document.querySelector(`.tog[data-toggle="${k}"]`)).length;
+    const count = Object.entries(this.toggles).filter(([k, v]) => v && document.querySelector(`.tog[data-toggle="${k}"]:not([hidden])`)).length;
     $('view-count').textContent = count;
     if (key === 'orbits') this.app.system.showOrbits = on;
     if (key === 'sound') {
@@ -360,6 +365,7 @@ export class UI {
   showHelp(on) { $('help').hidden = !on; if (on) $('help-close').focus(); }
 
   toast(html, ms = 4200) {
+    if (embedConfig && !embedConfig.ui.includes('toast')) return;
     const t = $('toast');
     t.innerHTML = html;
     t.classList.add('show');

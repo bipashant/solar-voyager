@@ -15,11 +15,12 @@ import { Sheet } from './sheet.js';
 import { Ambience } from './audio.js';
 import { ViewLink } from './viewlink.js';
 import { EventBar } from './eventbar.js';
+import { Embed } from './embed.js';
 import { SPEEDS, TRAVEL_MODES, TIME_RATES } from './data.js';
 import { jdFromMs, DEG } from './ephemeris.js';
 import { fmtDuration } from './format.js';
 import * as S from './shaders.js';
-import { haptic, onResume, appReady, isMobile, isCompact } from './platform.js';
+import { haptic, onResume, appReady, isMobile, isCompact, embedded } from './platform.js';
 
 const canvas = document.getElementById('view');
 let renderer;
@@ -105,7 +106,7 @@ const state = {
 const SOLAR_HIDE_KM = 3e11;
 const smooth = (a, b, x) => THREE.MathUtils.smoothstep(x, a, b);
 
-const audio = new Ambience();
+const audio = new Ambience({ muted: embedded }); // a lesson page full of views shouldn't all play music
 
 const app = {
   audio, state, system, sky, spacetime, travel, rig, camPos, deepSky: deep,
@@ -113,6 +114,8 @@ const app = {
 
   // A body of the Solar System or a deep-sky object, by id.
   lookup(id) { return system.byId[id] || deep.byId[id]; },
+
+  jd() { return jdFromMs(state.simMs); },
 
   systemBody() {
     const b = travel.active ? travel.target : state.focus;
@@ -377,12 +380,28 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'm' || e.key === 'M') ui.setToggle('sound', !ui.toggles.sound);
   else if (e.key === 'b' || e.key === 'B') ui.setToggle('deepsky', !ui.toggles.deepsky);
   else if (e.key === 'n' || e.key === 'N') ui.setToggle('dso', !ui.toggles.dso);
-  else if (e.key === 'h' || e.key === 'H') ui.setChromeHidden(!ui.uiHidden);
-  else if (e.key === 'p' || e.key === 'P') poster.open();
+  // clear view and the poster studio belong to the full app, not to a lesson's figure
+  else if ((e.key === 'h' || e.key === 'H') && !embedded) ui.setChromeHidden(!ui.uiHidden);
+  else if ((e.key === 'p' || e.key === 'P') && !embedded) poster.open();
   else if (e.key === 'Enter' && e.target === document.body) app.engage();
 });
 
 // ---------------------------------------------------------------- sizing
+// A lesson can narrow the field of view like a telescope (embed.js); it eases there in the frame loop.
+let fovTarget = null;
+const baseFov = () => (window.innerWidth < 720 ? 62 : 50);
+app.setFov = (deg, snap = false) => {
+  fovTarget = deg > 0 ? deg : null;
+  if (snap) { camera.fov = fovTarget ?? baseFov(); camera.updateProjectionMatrix(); }
+};
+function easeFov(dt) {
+  const want = fovTarget ?? baseFov();
+  if (Math.abs(camera.fov - want) < 1e-4) return;
+  const k = 1 - Math.exp(-dt * 2.6);
+  camera.fov = Math.abs(camera.fov - want) < 0.002 ? want : Math.exp(Math.log(camera.fov) + (Math.log(want) - Math.log(camera.fov)) * k);
+  camera.updateProjectionMatrix();
+}
+
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setPixelRatio(pixelRatio);
@@ -391,7 +410,7 @@ function resize() {
   sky.starMat.uniforms.uScale.value = pixelRatio;
   system.markers.material.uniforms.uDpr.value = pixelRatio;
   camera.aspect = w / h;
-  camera.fov = w < 720 ? 62 : 50;
+  camera.fov = fovTarget ?? baseFov();
   camera.updateProjectionMatrix();
   viewport.set(w, h);
   viewport.cy = h / 2 - viewShift;
@@ -550,14 +569,21 @@ app.startTour = () => guide.start();
 app.guide = guide;
 
 // ---------------------------------------------------------------- shareable views in the address bar
-// Points of view for event links (see viewlink.js), computed from where everything is at that moment.
-function aimPov(body, p) {
-  const [kind, id] = p.pov.split(':');
-  const other = id && app.lookup(id);
+// Points of view for event links and lessons (see viewlink.js, embed.js), computed from where everything is
+// at that moment: the direction from the body's centre to the camera, and the height above it.
+//   from:<id>  near <id>, looking back at the body     behind:<id>  past the body, with <id> behind it
+//   side:<id>  side-on to the line between them        top          above the ecliptic
+//   over:<lat>,<lon>  above a place on the body's surface (it turns with the body)
+//   site:<id>,<lat>,<lon>  standing at a place on another world, looking up at the body (an eclipse from Dallas)
+// turn (degrees about ecliptic north) and tilt (degrees towards it) swing the camera from there.
+const UP = new THREE.Vector3(0, 1, 0);
+function povTarget(body, p) {
+  const [kind, arg] = p.pov.split(':');
+  const other = arg && app.lookup(arg);
   const R = body.coreRadius ?? body.maxRadius;
   const dir = new THREE.Vector3();
   let alt = p.alt > 0 ? p.alt : null;
-  if ((kind === 'from' || kind === 'behind' || kind === 'side') && !other) return;
+  if ((kind === 'from' || kind === 'behind' || kind === 'side') && !other) return null;
   if (kind === 'from') {
     // near the other body, looking back at this one (e.g. Jupiter as seen from Earth)
     dir.copy(other.pos).sub(body.pos);
@@ -570,47 +596,96 @@ function aimPov(body, p) {
     alt ??= body.parent ? body.pos.distanceTo(body.parent.pos) - body.parent.radius - R : arrivalDistance(body) - R;
   } else if (kind === 'side') {
     const line = other.pos.clone().sub(body.pos).normalize();
-    dir.crossVectors(line, new THREE.Vector3(0, 1, 0)).normalize().addScaledVector(new THREE.Vector3(0, 1, 0), 0.25).normalize();
+    dir.crossVectors(line, UP).normalize().addScaledVector(UP, p.lift ?? 0.25).normalize();
     alt ??= other.pos.distanceTo(body.pos) * 0.8;
   } else if (kind === 'top') {
     dir.set(0, 1, 0).addScaledVector(new THREE.Vector3(0, 0, 1), 0.08).normalize(); // a hair off vertical
     alt ??= arrivalDistance(body) - R;
-  } else return;
-  rig.lookAtDirection(dir, alt);
+  } else if (kind === 'site') {
+    const [id, lat, lon] = (arg || '').split(',');
+    const world = app.lookup(id);
+    if (!world || world.deep || !Number.isFinite(+lat) || !Number.isFinite(+lon)) return null;
+    const spot = system.surfacePoint(world, +lat, +lon, new THREE.Vector3());
+    spot.addScaledVector(spot.clone().sub(world.pos).normalize(), 2); // eye height: a hilltop, clear of the ground
+    dir.copy(spot).sub(body.pos);
+    alt = dir.length() - R;
+    dir.normalize();
+  } else if (kind === 'over') {
+    const [lat, lon] = (arg || '').split(',').map(Number);
+    if (body.deep || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    system.surfacePoint(body, lat, lon, dir).sub(body.pos).normalize();
+    alt ??= arrivalDistance(body) - R;
+  } else return null;
+  if (p.turn) dir.applyAxisAngle(UP, p.turn * DEG);
+  if (p.tilt) {
+    const side = new THREE.Vector3().crossVectors(UP, dir);
+    if (side.lengthSq() > 1e-8) dir.applyAxisAngle(side.normalize(), -p.tilt * DEG);
+  }
+  return { dir, alt };
+}
+
+// Ease the camera round to a view of the world it's already orbiting (a pov, or yaw / pitch / alt).
+function aimView(body, p) {
+  if (p.pov) {
+    const t = povTarget(body, p);
+    if (t) rig.lookAtDirection(t.dir, t.alt);
+  } else {
+    if (p.yaw != null) {
+      let yaw = p.yaw * DEG;
+      while (yaw - rig.tYaw > Math.PI) yaw -= Math.PI * 2;
+      while (yaw - rig.tYaw < -Math.PI) yaw += Math.PI * 2;
+      rig.tYaw = yaw;
+    }
+    if (p.pitch != null) rig.tPitch = THREE.MathUtils.clamp(p.pitch * DEG, -1.55, 1.55);
+    if (p.alt > 0) rig.tLogAlt = Math.log(p.alt);
+  }
   rig.clampAlt();
-  rig.yaw = rig.tYaw; rig.pitch = rig.tPitch; rig.logAlt = rig.tLogAlt;
-  rig.lookYaw = rig.tLookYaw = 0; rig.lookPitch = rig.tLookPitch = 0;
+}
+
+// Put the camera straight there, orbiting `body`.
+function placeCamera(body, p) {
+  system.update(jdFromMs(state.simMs));
+  if (body.deep) deep.build(body);
+  if (travel.active) travel.abort();
+  state.focus = body;
+  rig.enabled = true;
+  ui.showFlight(false);
+  const alt = p.alt > 0 ? p.alt : arrivalDistance(body) - (body.coreRadius ?? body.maxRadius);
+  camPos.copy(body.pos).add(new THREE.Vector3(0, 0, alt + body.maxRadius));
+  rig.syncFrom(body, camPos, camQuat);
+  if (p.yaw != null) rig.yaw = rig.tYaw = p.yaw * DEG;
+  if (p.pitch != null) rig.pitch = rig.tPitch = THREE.MathUtils.clamp(p.pitch * DEG, -1.55, 1.55);
+  rig.tLogAlt = Math.log(alt);
+  rig.clampAlt();
+  rig.logAlt = rig.tLogAlt;
+  if (p.look) { rig.lookYaw = rig.tLookYaw = p.look[0] * DEG; rig.lookPitch = rig.tLookPitch = p.look[1] * DEG; }
+  if (p.pov) {
+    aimView(body, p);
+    rig.yaw = rig.tYaw; rig.pitch = rig.tPitch; rig.logAlt = rig.tLogAlt;
+    rig.lookYaw = rig.tLookYaw = 0; rig.lookPitch = rig.tLookPitch = 0;
+  }
   rig.update(0, camPos, camQuat);
+  app.sheet?.snap('peek');
 }
 
 let pendingCapture = null; // read the canvas right after a frame is drawn (WebGL clears it afterwards)
 const viewLink = new ViewLink(app, {
-  applyCamera(body, p) {
-    system.update(jdFromMs(state.simMs));
-    if (body.deep) deep.build(body);
-    state.focus = body;
-    rig.enabled = true;
-    ui.showFlight(false);
-    const alt = p.alt > 0 ? p.alt : arrivalDistance(body) - (body.coreRadius ?? body.maxRadius);
-    camPos.copy(body.pos).add(new THREE.Vector3(0, 0, alt + body.maxRadius));
-    rig.syncFrom(body, camPos, camQuat);
-    if (p.yaw !== null) rig.yaw = rig.tYaw = p.yaw * DEG;
-    if (p.pitch !== null) rig.pitch = rig.tPitch = THREE.MathUtils.clamp(p.pitch * DEG, -1.55, 1.55);
-    rig.tLogAlt = Math.log(alt);
-    rig.clampAlt();
-    rig.logAlt = rig.tLogAlt;
-    if (p.look) { rig.lookYaw = rig.tLookYaw = p.look[0] * DEG; rig.lookPitch = rig.tLookPitch = p.look[1] * DEG; }
-    if (p.pov) aimPov(body, p);
-    rig.update(0, camPos, camQuat);
-    app.sheet?.snap('peek');
-  },
+  applyCamera: placeCamera,
   capture(cb) { pendingCapture = cb; },
 });
 app.viewLink = viewLink;
 const eventBar = new EventBar(app);
 viewLink.onApply = (p) => { if (p.ev) { if (eventBar.event?.id !== p.ev || eventBar.v !== p.v) eventBar.show(p.ev, p.v); } };
 const sharedView = viewLink.parse(location.hash);
-if (sharedView && !viewLink.apply(sharedView)) history.replaceState(null, '', location.pathname);
+if (sharedView && !viewLink.apply(sharedView)) history.replaceState(null, '', location.pathname + location.search);
+
+// Embedded in a lesson page: only the controls it asks for, scripted by the page (see embed.js).
+const embed = embedded ? new Embed(app, {
+  place: placeCamera,
+  aim: aimView,
+  project: (p) => app.projectWorld(p, viewport),
+}) : null;
+app.embed = embed;
 
 // ---------------------------------------------------------------- loading
 manager.onProgress = (url, loaded, total) => ui.setLoader(loaded / Math.max(total, 1));
@@ -619,6 +694,7 @@ Promise.allSettled(jobs).then((results) => {
   const failed = results.filter((r) => r.status === 'rejected').length;
   ui.hideLoader();
   ui.loaded = true;
+  if (embed) { embed.ready(); return; }
   if (failed) ui.toast(`${failed} map${failed > 1 ? 's' : ''} failed to load; those worlds use generated surfaces.`, 5000);
   else if (sharedView?.ev) { /* the event bar says what this is */ }
   else if (sharedView) ui.toast(`Shared view: <b>${state.focus.name}</b>${sharedView.time ? ` on ${new Date(state.simMs).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}.`, 4000);
@@ -650,6 +726,7 @@ function makeThumbs(jd) {
 }
 
 function frame(now) {
+  if (app.sleeping) { last = now; requestAnimationFrame(frame); return; } // an embedded view scrolled out of sight
   adaptResolution((now - last) / 1000);
   const dt = Math.min((now - last) / 1000, 0.1);
   last = now;
@@ -672,6 +749,7 @@ function frame(now) {
   }
 
   applyViewShift();
+  easeFov(dt);
   camera.position.set(0, 0, 0);
   camera.quaternion.copy(camQuat);
   camera.updateMatrixWorld();
@@ -690,7 +768,8 @@ function frame(now) {
     look: !travel.active && state.focus.deep ? lookPoint.copy(state.focus.pos).add(rig.pivot) : null,
   });
   // the deep-sky models are built and baked in the background once the planets have loaded
-  if (ui.loaded) deep.start();
+  // (an embedded view only bothers if it shows them)
+  if (ui.loaded && (!embed || ui.toggles.dso)) deep.start();
   deep.setFrameTime(dt);
 
   const earth = system.byId.earth;
@@ -725,6 +804,7 @@ function frame(now) {
   if (streaks.visible) renderer.render(fxScene, camera);
   if (pendingCapture) { const cb = pendingCapture; pendingCapture = null; try { cb(canvas); } catch (err) { console.warn(err); cb(null); } }
   viewLink.tick(now);
+  embed?.tick(now);
 
   ui.updateLabels(viewport);
   ui.updateZoom();

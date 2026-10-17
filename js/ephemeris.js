@@ -95,18 +95,65 @@ export function planetOrbitPoints(id, jd, segments = 720) {
   return pts;
 }
 
-// Low-precision geocentric Moon position (about 0.3° accuracy), km in the scene frame.
+// Geocentric Moon: the main terms of ELP-2000/82 as truncated by Meeus (Astronomical Algorithms, ch. 47),
+// good to about 0.01° in longitude. Each row is [D, M, M', F, longitude (1e-6 deg), distance (m)].
+const MOON_LR = [
+  [0, 0, 1, 0, 6288774, -20905355], [2, 0, -1, 0, 1274027, -3699111], [2, 0, 0, 0, 658314, -2955968],
+  [0, 0, 2, 0, 213618, -569925], [0, 1, 0, 0, -185116, 48888], [0, 0, 0, 2, -114332, -3149],
+  [2, 0, -2, 0, 58793, 246158], [2, -1, -1, 0, 57066, -152138], [2, 0, 1, 0, 53322, -170733],
+  [2, -1, 0, 0, 45758, -204586], [0, 1, -1, 0, -40923, -129620], [1, 0, 0, 0, -34720, 108743],
+  [0, 1, 1, 0, -30383, 104755], [2, 0, 0, -2, 15327, 10321], [0, 0, 1, 2, -12528, 0],
+  [0, 0, 1, -2, 10980, 79661], [4, 0, -1, 0, 10675, -34782], [0, 0, 3, 0, 10034, -23210],
+  [4, 0, -2, 0, 8548, -21636], [2, 1, -1, 0, -7888, 24208], [2, 1, 0, 0, -6766, 30824],
+  [1, 0, -1, 0, -5163, -8379], [1, 1, 0, 0, 4987, -16675], [2, -1, 1, 0, 4036, -12831],
+  [2, 0, 2, 0, 3994, -10445], [4, 0, 0, 0, 3861, -11650], [2, 0, -3, 0, 3665, 14403],
+  [0, 1, -2, 0, -2689, -7003], [2, 0, -1, 2, -2602, 0], [2, -1, -2, 0, 2390, 10056],
+  [1, 0, 1, 0, -2348, 6322], [2, -2, 0, 0, 2236, -9884],
+];
+// [D, M, M', F, latitude (1e-6 deg)]
+const MOON_B = [
+  [0, 0, 0, 1, 5128122], [0, 0, 1, 1, 280602], [0, 0, 1, -1, 277693], [2, 0, 0, -1, 173237],
+  [2, 0, -1, 1, 55413], [2, 0, -1, -1, 46271], [2, 0, 0, 1, 32573], [0, 0, 2, 1, 17198],
+  [2, 0, 1, -1, 9266], [0, 0, 2, -1, 8822], [2, -1, 0, -1, 8216], [2, 0, -2, -1, 4324],
+  [2, 0, 1, 1, 4200], [2, 1, 0, -1, -3359], [2, -1, -1, 1, 2463], [2, -1, 0, 1, 2211],
+  [2, -1, -1, -1, 2065], [0, 1, -1, -1, -1870], [4, 0, -1, -1, 1828], [0, 1, 0, 1, -1794],
+  [0, 0, 0, 3, -1749], [0, 1, -1, 1, -1565], [1, 0, 0, 1, -1491], [0, 1, 1, 1, -1475],
+  [0, 1, 1, -1, -1410], [0, 1, 0, -1, -1344], [1, 0, 0, -1, -1335], [0, 0, 3, 1, 1107],
+  [4, 0, 0, -1, 1021], [4, 0, -1, 1, 833],
+];
+
+// km in the scene frame (J2000 ecliptic, like the planets). The series runs on Terrestrial Time, which is
+// ahead of the clock time used everywhere else by ΔT (about 69 s in the 2020s; NASA's fit for 2005–2050).
 export function moonGeocentric(jd, out) {
-  const d = jd - 2451545.0;
-  const L = 218.316 + 13.176396 * d;
-  const M = (134.963 + 13.064993 * d) * DEG;
-  const F = (93.272 + 13.229350 * d) * DEG;
-  const D = (297.850 + 12.190749 * d) * DEG;
-  const Ms = (357.529 + 0.98560028 * d) * DEG;
-  const lon = (L + 6.289 * Math.sin(M) + 1.274 * Math.sin(2 * D - M) + 0.658 * Math.sin(2 * D)
-    - 0.186 * Math.sin(Ms) - 0.114 * Math.sin(2 * F)) * DEG;
-  const lat = (5.128 * Math.sin(F) + 0.281 * Math.sin(M + F) + 0.278 * Math.sin(M - F)) * DEG;
-  const dist = 385001 - 20905 * Math.cos(M) - 3699 * Math.cos(2 * D - M) - 2956 * Math.cos(2 * D);
+  const yr = (jd - 2451545.0) / 365.25;
+  const T = (jd + (62.92 + 0.32217 * yr + 0.005589 * yr * yr) / 86400 - 2451545.0) / 36525;
+  const deg = (a, b, c = 0) => ((a + b * T + c * T * T) % 360) * DEG;
+  const Lp = deg(218.3164477, 481267.88123421, -0.0015786);
+  const D = deg(297.8501921, 445267.1114034, -0.0018819);
+  const M = deg(357.5291092, 35999.0502909, -0.0001536);
+  const Mp = deg(134.9633964, 477198.8675055, 0.0087414);
+  const F = deg(93.2720950, 483202.0175233, -0.0036539);
+  const E = 1 - 0.002516 * T - 0.0000074 * T * T; // the Earth's orbit slowly rounding out
+  let sl = 0, sr = 0, sb = 0;
+  for (const [d, m, mp, f, l, r] of MOON_LR) {
+    const arg = d * D + m * M + mp * Mp + f * F;
+    const e = m === 0 ? 1 : Math.abs(m) === 1 ? E : E * E;
+    sl += l * e * Math.sin(arg);
+    sr += r * e * Math.cos(arg);
+  }
+  for (const [d, m, mp, f, b] of MOON_B) {
+    const e = m === 0 ? 1 : Math.abs(m) === 1 ? E : E * E;
+    sb += b * e * Math.sin(d * D + m * M + mp * Mp + f * F);
+  }
+  const A1 = deg(119.75, 131.849), A2 = deg(53.09, 479264.290), A3 = deg(313.45, 481266.484);
+  sl += 3958 * Math.sin(A1) + 1962 * Math.sin(Lp - F) + 318 * Math.sin(A2);
+  sb += -2235 * Math.sin(Lp) + 382 * Math.sin(A3) + 175 * Math.sin(A1 - F) + 175 * Math.sin(A1 + F)
+    + 127 * Math.sin(Lp - Mp) - 115 * Math.sin(Lp + Mp);
+  // The series gives longitude from the equinox of the date; the planets use J2000, so take off the
+  // precession since then (about 0.34° by 2024, which would otherwise shift eclipses by half an hour).
+  const lon = Lp + (sl / 1e6 - 1.3969713 * T) * DEG;
+  const lat = (sb / 1e6) * DEG;
+  const dist = 385000.56 + sr / 1000;
   const x = dist * Math.cos(lat) * Math.cos(lon);
   const y = dist * Math.cos(lat) * Math.sin(lon);
   const z = dist * Math.sin(lat);

@@ -1,7 +1,7 @@
 // Guided tour: shows each control by doing it for real (an animated finger or pointer drags, pinches and
 // taps while the camera actually moves, a destination is actually chosen and the ship actually flies),
 // then asks you to try it and moves on when you do. Runs once on first launch; replay it from Help or View.
-import { haptic, isTouch } from './platform.js';
+import { haptic, isTouch, embedded } from './platform.js';
 import { fmtDuration } from './format.js';
 
 const DONE_KEY = 'solarVoyager.tourDone';
@@ -98,7 +98,7 @@ export class Guide {
 
   // ---------------------------------------------------------------- lifecycle
   maybeStart() {
-    if (seen() || location.hash === '#poster' || location.hash.includes('at=')) return false; // not over a shared view
+    if (embedded || seen() || location.hash === '#poster' || location.hash.includes('at=')) return false; // not over a shared view
     setTimeout(() => this.start(), 900);
     return true;
   }

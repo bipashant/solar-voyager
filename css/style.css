@@ -1080,3 +1080,56 @@ body.poster-open #dock, body.poster-open .show-ui { visibility: hidden; }
   .sheet.animating, .tog-group { transition: none; animation: none; }
   #toast, #cockpit, #loader, .show-ui, .dock, .tog-group, .switch, .switch::after, .hud-dot, .guide-spot, .guide-card { transition: none; animation: none; }
 }
+
+.learn-btn svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------------------------------------------------------------- embedded in a lesson (js/embed.js) */
+/* Only the controls the page asked for (ui=...), with no branding, sharing or sound. */
+html.embed :is(.brand, .row-only, #btn-share, .share-menu, #btn-sound, #btn-hide-ui, #btn-show-ui, #sheet, #guide, .tog-actions, .tog-sheet-head .grab) { display: none !important; }
+html.embed:not(.ui-clock) .clock,
+html.embed:not(.ui-zoom) .zoom,
+html.embed:not(.ui-view) .toggles,
+html.embed:not(.ui-info) #info,
+html.embed:not(.ui-flight) :is(#console, #dock, #flight) { display: none !important; }
+html.embed { --gutter: 12px; }
+html.embed .topbar { padding-top: 12px; }
+html.embed .toggles { top: 12px; }
+html.embed .clock { padding: 8px 10px; gap: 6px; }
+html.embed .clock-readout { font-size: 12px; }
+html.embed .clock-controls select { width: 118px; }
+html.embed .zoom { top: auto; bottom: 12px; transform: none; width: 52px; padding: 6px 0 7px; }
+html.embed .zoom-track { height: 120px; }
+html.embed .zoom-track input { width: 120px; }
+html.embed .zoom-btn { width: 36px; height: 36px; }
+@media (max-height: 460px) { html.embed .zoom-track { display: none; } }
+@media (max-width: 720px), (max-height: 500px) and (pointer: coarse) {
+  html.embed .zoom { left: auto; right: var(--gutter); top: auto; bottom: 12px; transform: none; }
+  html.embed .toggles > .view-btn { border-radius: 14px; }
+}
+
+/* Marks: labels, arrows, axes and rings a lesson pins to points in space */
+#marks { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+#marks svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+#marks .mk { opacity: 0; transition: opacity 0.5s ease; }
+#marks .mk.in { opacity: 1; }
+.mk-line { stroke: var(--mk); stroke-width: 2; stroke-linecap: round; fill: none; filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9)); }
+.mk-axis { stroke-width: 1.6; stroke-dasharray: 7 5; }
+.mk-leader { stroke: var(--mk); stroke-width: 1.3; opacity: 0.85; }
+.mk-dot { fill: var(--mk); stroke: rgba(3, 5, 10, 0.85); stroke-width: 1.5; }
+.mk-ring { fill: none; stroke: var(--mk); stroke-width: 1.8; stroke-dasharray: 4 4; filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.9)); animation: mk-spin 14s linear infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes mk-spin { to { transform: rotate(360deg); } }
+.mk-label {
+  position: absolute; left: 0; top: 0; max-width: min(260px, 60vw);
+  padding: 6px 10px; border-radius: 9px;
+  background: rgba(6, 10, 18, 0.82); border: 1px solid color-mix(in srgb, var(--mk) 55%, transparent);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  color: var(--ink); font: 600 13px/1.3 var(--font-body); white-space: normal; width: max-content;
+  opacity: 0; transition: opacity 0.5s ease;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.mk-label.in { opacity: 1; }
+.mk-label b { color: var(--mk); font-weight: 700; }
+.mk-label small { display: block; font: 500 11px/1.3 var(--font-body); color: var(--ink-dim); }
+.mk-label.mk-small { padding: 2px 7px; font: 700 11px/1.2 var(--font-display); letter-spacing: 0.1em; color: var(--mk); }
+@media (max-width: 520px) { .mk-label { font-size: 12px; padding: 5px 8px; } }
+@media (prefers-reduced-motion: reduce) { .mk-ring { animation: none; } }

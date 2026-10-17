@@ -527,6 +527,12 @@ void main(){
   }
 #endif
   vec3 col = albedo * uSunCol * diffuse * shadow + albedo * 0.003 + emit;
+#ifdef BLOOD
+  // Inside Earth's shadow the Moon still gets sunlight bent through Earth's atmosphere, reddened like
+  // a sunset on its way, so an eclipsed Moon glows a dim copper instead of going black.
+  float umbra = 1.0 - shadow;
+  col += albedo * vec3(0.62, 0.17, 0.06) * diffuse * umbra * umbra * 0.42;
+#endif
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -1031,11 +1037,13 @@ uniform vec2 uViewport;
 uniform float uFovScale;
 varying vec2 vUv;
 varying float vDiscFrac;
+varying float vSizePx;
 void main(){
   vec4 clip = projectionMatrix * vec4(uCenterV, 1.0);
   float pxPerWorld = uViewport.y / (uFovScale * max(-uCenterV.z, 1e-3));
   float sizePx = max(uSizeWorld * pxPerWorld, uMinPx);
   vDiscFrac = (uSizeWorld / 2.6) * pxPerWorld / sizePx;
+  vSizePx = sizePx;
   vec2 off = position.xy * sizePx / uViewport * 2.0 * clip.w;
   gl_Position = vec4(clip.xy + off, clip.w * 0.0, clip.w);
   vUv = position.xy;
@@ -1046,8 +1054,10 @@ export const GLARE_FRAG = /* glsl */`
 uniform float uIntensity;
 uniform float uCorona;
 uniform float uTime;
+uniform vec3 uOccPx; // the world in front of the Sun: offset from its centre and radius, in pixels (z = 0: none)
 varying vec2 vUv;
 varying float vDiscFrac;
+varying float vSizePx;
 void main(){
   float r = length(vUv);
   if (r > 1.0) discard;
@@ -1067,6 +1077,8 @@ void main(){
   float cr = max(r - vDiscFrac, 0.0) / max(vDiscFrac, 1e-3);
   float streamer = 0.6 + 0.4 * pow(abs(sin(ang * 3.0 + 0.7)), 3.0) + 0.25 * sin(ang * 11.0 + 1.3);
   col += vec3(0.86, 0.9, 1.0) * uCorona * out_ * (exp(-cr * 2.2) * 1.3 + exp(-cr * 0.55) * 0.42 * streamer) * smoothstep(1.0, 0.6, r);
+  // the glare is drawn over everything, so cut out the dark disc of a moon or planet crossing the Sun
+  if (uOccPx.z > 0.0) col *= smoothstep(uOccPx.z - 0.8, uOccPx.z + 0.8, length(vUv * vSizePx - uOccPx.xy));
   gl_FragColor = vec4(col, 1.0);
 }
 `;

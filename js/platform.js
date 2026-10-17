@@ -17,7 +17,14 @@ export const isMobile = isIOS || (isTouch && /Android/.test(ua));
 export const textureCap = isMobile ? 4096 : Infinity;
 export const lowMemory = isPhone || (isMobile && !isIOS) || (navigator.deviceMemory || 8) <= 4;
 
+// Embedded in another page (a lesson, see js/embed.js): index.html?embed=1&ui=clock,zoom&layers=orbits,labels
+const query = new URLSearchParams(location.search);
+export const embedded = query.has('embed');
+const list = (k, fallback) => (query.has(k) ? query.get(k).split(',').filter(Boolean) : fallback);
+export const embedConfig = embedded ? { ui: list('ui', ['zoom']), layers: list('layers', ['orbits', 'labels']) } : null;
+
 if (isNative) document.documentElement.classList.add('native-app');
+if (embedded) document.documentElement.classList.add('embed', ...embedConfig.ui.map((u) => `ui-${u}`));
 if (isMobile) document.documentElement.classList.add('mobile');
 // the app is always full screen; iPhone Safari can't go full screen at all
 if (isNative || (!document.fullscreenEnabled && !document.webkitFullscreenEnabled)) document.documentElement.classList.add('no-fullscreen');

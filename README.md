@@ -226,7 +226,7 @@ The same function, sampled around the full orbit (1,440 points), draws the orbit
 
 ### Earth and the Moon
 
-JPL's "Earth" entry is really the **Earth–Moon barycentre**. The Moon's position comes from a short lunar series in `moonGeocentric()`: the main periodic terms for longitude, latitude and distance, accurate to a few tenths of a degree. That puts Earth at `barycentre − Moon × 0.01215` (the Moon's share of the combined mass) and the Moon at `Earth + Moon offset`. The Moon's phase as seen from Earth is therefore correct for any date.
+JPL's "Earth" entry is really the **Earth–Moon barycentre**. The Moon's position comes from `moonGeocentric()`: the 62 largest periodic terms of the ELP-2000/82 lunar theory as truncated by Meeus, corrected for precession to the J2000 ecliptic the planets use and for ΔT. It is good to about 0.01°, which puts the eclipses of 1999–2027 within about a minute of their published times. That puts Earth at `barycentre − Moon × 0.01215` (the Moon's share of the combined mass) and the Moon at `Earth + Moon offset`. The Moon's phase as seen from Earth is therefore correct for any date.
 
 ### Other moons
 
@@ -689,7 +689,7 @@ The ship moves at `speed × time-lapse` km per second in a straight line, and th
 | Aspect | Status |
 | --- | --- |
 | Planet and Pluto positions | Real, from JPL approximate elements; accurate to well under a degree between 1800 and 2050 |
-| Earth–Moon positions, Moon phase | Real, from a short lunar series; a few tenths of a degree |
+| Earth–Moon positions, Moon phase | Real, from the main terms of ELP-2000/82; about 0.01°, eclipses within a minute |
 | Planet rotation (day side, Great Red Spot longitude on the map) | Real IAU rotation models |
 | Sizes, polar flattening, irregular moon dimensions | Real |
 | Moon orbit sizes, periods, inclinations, eccentricities | Real |
