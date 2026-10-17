@@ -103,6 +103,7 @@ In VS Code, the *Live Server* extension also works.
 | N, or the **Galaxies & nebulae** button | Show or hide the 3D galaxies, nebulae and star clusters and their labels (the one you are visiting stays) |
 | G | Show or hide spacetime curvature (same as the **Curvature** button) |
 | **Guided tour** (first launch, or Help › Take the guided tour, or View › Guided tour) | A one-minute walkthrough that does each step for real: a finger drags, pinches and taps while the camera moves, the Moon becomes your destination and the ship flies there; then it asks you to try, and moves on when you do. Esc ends it |
+| **Sound** (View menu) | An ambient space soundtrack, synthesised live in the browser (no audio files). It fades in at 75% volume on your first tap or key press, because mobile browsers keep sound off until you touch the page. It changes key with where you are, opens up with a faint rush during flights and swells on arrival. Switch it off under View; the choice is remembered |
 | P, or the **Poster** button | Open the poster studio: the solar system on any date from 1800 to 2050, as a print-ready PNG (link straight to it with `#poster`) |
 | H, or the eye button (top right) | Hide every control for a clear, full-screen view; press again, or tap the small eye, to bring them back |
 | Dock (bottom, while controls are hidden) | Shows where you're headed and the trip time. Its icons open the details, open the flight controls (the flight readout while flying), and Engage or abort in one tap. On a phone, tap empty space to put panels away |
@@ -737,6 +738,7 @@ js/controls.js        CameraRig: orbit (in a deep-sky object's own frame), log-a
                       tap/double-tap, zoom API
 js/travel.js          Flight planning, cinematic log profile, real-time mode
 js/sheet.js           Phone bottom sheet: drag stops, search, world chips, flight settings, details
+js/audio.js           Generated ambient soundtrack (Web Audio): drone, breath, bells, reverb; follows the journey
 js/guide.js           Guided tour: live demos of each gesture, then waits for you to try it
 js/platform.js        Device detection, mobile memory limits, haptics, sharing and app lifecycle (web and iOS app)
 js/poster.js          Poster studio: date to planet directions, 2D poster layout, print-size PNG export

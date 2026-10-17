@@ -12,6 +12,7 @@ import { UI } from './ui.js';
 import { PosterStudio } from './poster.js';
 import { Guide } from './guide.js';
 import { Sheet } from './sheet.js';
+import { Ambience } from './audio.js';
 import { SPEEDS, TRAVEL_MODES, TIME_RATES } from './data.js';
 import { jdFromMs, DEG } from './ephemeris.js';
 import { fmtDuration } from './format.js';
@@ -102,8 +103,10 @@ const state = {
 const SOLAR_HIDE_KM = 3e11;
 const smooth = (a, b, x) => THREE.MathUtils.smoothstep(x, a, b);
 
+const audio = new Ambience();
+
 const app = {
-  state, system, sky, spacetime, travel, rig, camPos, deepSky: deep,
+  audio, state, system, sky, spacetime, travel, rig, camPos, deepSky: deep,
   solarVisible: true,
 
   // A body of the Solar System or a deep-sky object, by id.
@@ -173,6 +176,7 @@ const app = {
     });
     rig.enabled = false;
     haptic('engage');
+    audio.engage();
     app.sheet?.snap('peek'); // phones: get the sheet out of the way of the flight
     if (isCompact()) document.getElementById('info').classList.add('collapsed');
     ui.showFlight(true, target);
@@ -300,6 +304,7 @@ function arrive(body, aborted = false, quiet = false) {
   if (quiet) { if (shade) ui.toast(shade.trim(), 6000); return; }
   if (!aborted) {
     haptic('arrive');
+    audio.arrive();
     const real = travel.realDuration;
     ui.toast(`Arrived at <b>${body.name}</b> · ${fmtDuration(real)} at ${state.speed.short}.${shade}`, shade ? 7000 : 5200);
   } else {
@@ -583,6 +588,7 @@ function frame(now) {
   state.simMs += dt * 1000 * state.timeRate.rate;
   const jd = jdFromMs(state.simMs);
   makeThumbs(jd);
+  audio.update(travel.active ? travel.streak : 0, travel.active ? travel.target : state.focus);
   shared.uTime.value += dt;
   system.update(jd);
   if (Math.abs(jd - system.orbitJd) > 3650) system.buildOrbitLines(jd);
