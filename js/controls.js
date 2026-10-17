@@ -42,7 +42,7 @@ export class CameraRig {
     el.addEventListener('contextmenu', (e) => e.preventDefault());
     el.addEventListener('pointerdown', (e) => {
       el.setPointerCapture(e.pointerId);
-      this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now(), look: e.button === 2 || e.shiftKey });
+      this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: e.timeStamp, look: e.button === 2 || e.shiftKey });
       if (this.pointers.size === 2) this.pinch = this.pinchDistance();
     });
     el.addEventListener('pointermove', (e) => {
@@ -75,8 +75,9 @@ export class CameraRig {
       if (this.pointers.size < 2) this.pinch = null;
       if (!p) return;
       const moved = Math.hypot(e.clientX - p.sx, e.clientY - p.sy);
-      if (moved < 6 && performance.now() - p.t < 450 && e.type === 'pointerup') {
-        const now = performance.now();
+      // event timestamps, not the time the handler ran: a busy frame can delay the handler by 100s of ms
+      if (moved < 6 && e.timeStamp - p.t < 450 && e.type === 'pointerup') {
+        const now = e.timeStamp;
         if (this.lastTap && now - this.lastTap.t < 320 && Math.hypot(e.clientX - this.lastTap.x, e.clientY - this.lastTap.y) < 20) {
           this.onDoubleTap?.(e.clientX, e.clientY);
           this.lastTap = null;
@@ -123,7 +124,14 @@ export class CameraRig {
   minAlt() { return this.focus ? Math.max(this.focus.minAlt ?? this.focus.maxRadius * 0.0006, 0.03) : 1; }
   maxAlt() { return this.focus?.maxAlt ?? MAX_ALT; }
   clampAlt() {
-    this.tLogAlt = THREE.MathUtils.clamp(this.tLogAlt, Math.log(this.minAlt()), Math.log(this.maxAlt()));
+    const hi = Math.log(this.maxAlt());
+    // Pushing on past the farthest zoom of a galaxy or nebula means "take me back out": counted up here,
+    // and when it adds up to a firm push, main.js flies to the full Solar System view.
+    if (this.focus?.deep && this.tLogAlt > hi) {
+      this.overflow = (this.overflow || 0) + (this.tLogAlt - hi);
+      if (this.overflow > 0.45) { this.overflow = 0; this.onZoomOutLimit?.(); }
+    }
+    this.tLogAlt = THREE.MathUtils.clamp(this.tLogAlt, Math.log(this.minAlt()), hi);
   }
 
   // On-screen zoom control: one step is a factor of about 1.6 in altitude.
@@ -145,6 +153,7 @@ export class CameraRig {
     const lo = Math.log(this.minAlt()), hi = Math.log(this.maxAlt());
     this.tLogAlt = hi - THREE.MathUtils.clamp(f, 0, 1) * (hi - lo);
     this.clampAlt();
+    if (f <= 0.002 && this.focus?.deep) this.onZoomOutLimit?.(); // slider all the way out
     this.onInteract?.();
   }
 
@@ -202,6 +211,7 @@ export class CameraRig {
       if (k.has('s') || k.has('-') || k.has('_')) { this.tLogAlt += 1.4 * dt; this.clampAlt(); }
       if (this.zoomHold) { this.tLogAlt -= this.zoomHold * 1.6 * dt; this.clampAlt(); }
     }
+    if (this.overflow) this.overflow *= Math.exp(-dt * 1.5);
     const a = 1 - Math.exp(-dt * 9);
     this.yaw += (this.tYaw - this.yaw) * a;
     this.pitch += (this.tPitch - this.pitch) * a;

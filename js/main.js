@@ -138,6 +138,26 @@ const app = {
     if (phone && app.sheet.detent !== 'peek') app.sheet.snap('peek');
   },
 
+  // Zoom 0: the whole Solar System with every planet in view, from wherever you are.
+  showSolarSystem() {
+    if (travel.active) return;
+    const sun = system.byId.sun;
+    const frame = () => {
+      // ~35 AU reaches Neptune; high above the ecliptic so the orbits open out as ellipses
+      const half = Math.tan(Math.min(camera.fov * DEG / 2, Math.atan(Math.tan(camera.fov * DEG / 2) * camera.aspect)));
+      rig.tLogAlt = Math.log(Math.min(3e10, (35 * 149597870.7) / half));
+      rig.tPitch = 1.05;
+      rig.tLookYaw = 0; rig.tLookPitch = 0;
+    };
+    if (state.focus === sun) { frame(); return; }
+    haptic('engage');
+    ui.toast('Back out to the <b>Solar System</b>…', 3200);
+    pendingOverview = frame;
+    state.destination = sun;
+    ui.syncSelects();
+    app.engage();
+  },
+
   tripDistance(b) {
     // galaxies and nebulae park at a chosen viewpoint (for the Milky Way, far outside it)
     if (b.approach) return b.pos.clone().addScaledVector(b.approach(camPos), arrivalDistance(b)).distanceTo(camPos);
@@ -253,6 +273,7 @@ ui.ensureBodyLabels(system.bodies);
 ui.ensureDeepLabels(deep.objects);
 ui.syncSelects();
 
+let pendingOverview = null; // set while flying back to the Sun to open out to the whole Solar System
 function arrive(body, aborted = false, quiet = false) {
   state.focus = body;
   app.sheet?.snap('peek');
@@ -271,6 +292,11 @@ function arrive(body, aborted = false, quiet = false) {
   const vis = body.kind === 'star' || body.deep ? 1 : system.sunVisibility(body.pos);
   const shade = vis < 0.1 && system.eclipser
     ? ` ${body.name} is in ${system.eclipser.name}’s shadow right now; speed up the clock to watch it return to sunlight.` : '';
+  if (pendingOverview) {
+    const f = pendingOverview;
+    pendingOverview = null;
+    if (body.id === 'sun' && !aborted) { f(); return; } // the camera then eases out to the full view
+  }
   if (quiet) { if (shade) ui.toast(shade.trim(), 6000); return; }
   if (!aborted) {
     haptic('arrive');
@@ -310,6 +336,7 @@ function pick(x, y) {
   return best;
 }
 
+rig.onZoomOutLimit = () => { if (rig.enabled && !travel.active && state.focus.deep) app.showSolarSystem(); };
 rig.onTap = (x, y) => {
   const b = pick(x, y);
   if (b) {
@@ -442,7 +469,11 @@ app.snapshot = (jd, requests) => {
     } else {
       // from above the ecliptic, leaning a little sunward so more of the day side shows
       dir.set(0, 1, 0);
-      if (b.kind !== 'star') dir.add(system.byId.sun.pos.clone().sub(b.pos).setY(0).normalize().multiplyScalar(0.5));
+      if (b.kind !== 'star') {
+        const toSun = system.byId.sun.pos.clone().sub(b.pos).normalize();
+        // thumbnails look from the Sun's side, so the whole disc is lit; posters lean sunward from above
+        if (req.lit) dir.copy(toSun).add(new THREE.Vector3(0, 0.12, 0)); else dir.add(toSun.setY(0).normalize().multiplyScalar(0.5));
+      }
       dir.normalize();
       dist = extent / Math.sin(half);
       eye.copy(b.pos).addScaledVector(dir, dist);
@@ -530,12 +561,28 @@ Promise.allSettled(jobs).then((results) => {
 let last = performance.now();
 const tmpDir = new THREE.Vector3();
 const lookPoint = new THREE.Vector3();
+app.thumbs = {};
+app.thumbVersion = 0;
+const thumbQueue = [];
+let thumbsQueued = false;
+function makeThumbs(jd) {
+  if (!thumbsQueued && ui.loaded && sheet.mounted) { thumbsQueued = true; thumbQueue.push(...system.bodies.map((b) => b.id)); }
+  if (!thumbQueue.length || travel.active) return;
+  const batch = thumbQueue.splice(0, 8).map((id) => ({ id, px: 128, lit: true }));
+  try {
+    const out = app.snapshot(jd, batch);
+    for (const r of batch) if (out[r.id]) app.thumbs[r.id] = out[r.id].canvas.toDataURL('image/png');
+  } catch (err) { console.warn('thumbnails', err); thumbQueue.length = 0; }
+  if (!thumbQueue.length || batch.length) app.thumbVersion++;
+}
+
 function frame(now) {
   adaptResolution((now - last) / 1000);
   const dt = Math.min((now - last) / 1000, 0.1);
   last = now;
   state.simMs += dt * 1000 * state.timeRate.rate;
   const jd = jdFromMs(state.simMs);
+  makeThumbs(jd);
   shared.uTime.value += dt;
   system.update(jd);
   if (Math.abs(jd - system.orbitJd) > 3650) system.buildOrbitLines(jd);

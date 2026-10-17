@@ -229,8 +229,8 @@ export class Sheet {
       const b = e.target.closest('[data-world]');
       if (!b) return;
       // double-tap a world to fly straight there
-      const now = performance.now();
-      if (lastTap.id === b.dataset.world && now - lastTap.t < 350) {
+      const now = e.timeStamp;
+      if (lastTap.id === b.dataset.world && now - lastTap.t < 400) {
         lastTap = { id: null, t: 0 };
         this.snap('peek');
         app.ui.flyTo(b.dataset.world);
@@ -255,18 +255,26 @@ export class Sheet {
     return [...system.bodies, ...(deepSky?.objects || [])];
   }
 
+  // A picture of the world: a render of the real thing for planets and moons (see main.js), painted art in
+  // the object's own colour for galaxies, nebulae and clusters.
+  art(b, cls = 'sw') {
+    const img = this.app.thumbs?.[b.id];
+    if (img) return `<span class="${cls} img" style="--img:url('${img}')"></span>`;
+    return `<span class="${cls}${b.deep ? ` dso dso-${b.kind}` : ''}" style="--c:${b.data?.color || '#9aa7c7'}"></span>`;
+  }
+
   chip(b) {
     const { state } = this.app;
     const sub = b === state.focus ? '<em>Here</em>' : '';
     return `<button type="button" class="world-chip${b === state.destination && b !== state.focus ? ' sel' : ''}${b === state.focus ? ' here' : ''}" data-world="${b.id}">`
-      + `<span class="sw" style="--c:${b.data?.color || '#9aa7c7'}"></span><span class="nm">${b.name}</span>${sub}</button>`;
+      + `${this.art(b)}<span class="nm">${b.name}</span>${sub}</button>`;
   }
 
   // Rows of worlds: the planets, the moons of whatever system you're in, and the deep sky.
   renderWorlds() {
     const { system, deepSky, state } = this.app;
     const sys = this.app.systemBody();
-    const key = `${sys?.id}|${state.focus.id}|${state.destination.id}|${deepSky?.objects?.length}`;
+    const key = `${sys?.id}|${state.focus.id}|${state.destination.id}|${deepSky?.objects?.length}|${this.app.thumbVersion || 0}`;
     if (key === this.worldKey) return;
     this.worldKey = key;
     const groups = [['Planets', system.bodies.filter((b) => ['star', 'planet', 'dwarf'].includes(b.kind))]];
@@ -290,7 +298,7 @@ export class Sheet {
       .slice(0, 30);
     res.innerHTML = hits.length ? hits.map((b) => {
       const sub = b.data?.subtitle || (b.parent ? `Moon of ${b.parent.name}` : b.kind);
-      return `<button type="button" class="result" data-world="${b.id}"><span class="sw" style="--c:${b.data?.color || '#9aa7c7'}"></span>`
+      return `<button type="button" class="result" data-world="${b.id}">${this.art(b)}`
         + `<span class="tx"><b>${b.name}</b><small>${sub}</small></span></button>`;
     }).join('') : `<p class="none">Nothing called “${$('sheet-search').value.trim()}” here yet.</p>`;
   }
@@ -306,19 +314,28 @@ export class Sheet {
     const flying = travel.active;
     const here = !flying && state.destination === state.focus;
     const b = flying ? travel.target : here ? state.focus : state.destination;
-    $('sheet-swatch').style.setProperty('--c', b.data?.color || '#888');
-    $('sheet-name').textContent = b.name;
+    const sw = $('sheet-swatch');
+    const img = this.app.thumbs?.[b.id];
+    sw.className = `sheet-swatch${img ? ' img' : b.deep ? ` dso dso-${b.kind}` : ''}`;
+    sw.style.setProperty('--c', b.data?.color || '#888');
+    if (img) sw.style.setProperty('--img', `url('${img}')`); else sw.style.removeProperty('--img');
+    // "You're in Earth" on top; below it where the Fly button leads, or just where you are
     let role, sub;
+    const nameEl = $('sheet-name');
     if (flying) {
-      role = 'En route';
+      role = `En route from ${the(state.focus)}`;
       sub = `${fmtDuration(travel.shipRemaining)} left · ${fmtCompact(travel.remainingKm ?? 0)}`;
       $('sheet-bar').style.width = `${(travel.progress * 100).toFixed(1)}%`;
-    } else if (here) {
-      role = 'You are here';
-      sub = b.data?.subtitle || '';
     } else {
-      role = 'Fly to';
-      sub = `${fmtDuration(this.app.tripDistance(b) / state.speed.kms)} at ${state.speed.short}`;
+      role = `You’re in ${the(state.focus)}`;
+      sub = here ? (b.data?.subtitle || '') : `${fmtDuration(this.app.tripDistance(b) / state.speed.kms)} at ${state.speed.short}`;
+    }
+    const lead = flying ? 'To ' : here ? '' : 'Fly to ';
+    if (nameEl.dataset.k !== `${lead}${b.name}`) {
+      nameEl.dataset.k = `${lead}${b.name}`;
+      nameEl.replaceChildren();
+      if (lead) { const s = document.createElement('span'); s.className = 'lead'; s.textContent = lead; nameEl.append(s); }
+      nameEl.append(b.name);
     }
     $('sheet-role').textContent = role;
     $('sheet-sub').textContent = sub;

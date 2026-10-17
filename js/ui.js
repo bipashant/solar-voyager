@@ -21,7 +21,7 @@ export class UI {
     // Phones start in a calm layout: logo and View at the top, a collapsed Engage dock at the bottom.
     // Everything else is one switch away under View > Panels.
     const wide = !isCompact();
-    this.toggles = { orbits: true, labels: true, deepsky: true, dso: true, constellations: false, starnames: false, curvature: false, cockpit: true, info: false, console: wide, clock: wide, zoom: wide };
+    this.toggles = { orbits: true, labels: true, deepsky: true, dso: true, constellations: false, starnames: false, curvature: false, cockpit: true, info: false, console: wide, clock: wide, zoom: true };
     this.labelEls = new Map();
     this.featureEls = [];
     this.skyEls = { const: [], names: [] };
@@ -586,8 +586,8 @@ export class UI {
     let last = 0;
     e.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      const now = performance.now();
-      if (now - last < 350) { last = 0; this.flyTo(id); return; }
+      const now = ev.timeStamp; // when the tap happened, not when a busy frame let us handle it
+      if (now - last < 400) { last = 0; this.flyTo(id); return; }
       last = now;
       haptic('tap');
       this.app.pickDestination(id);
